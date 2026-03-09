@@ -93,6 +93,11 @@ export async function connectWalletConnect(): Promise<string> {
     throw new Error("WalletConnect Project ID not configured.");
   }
 
+  if (wcProviderInstance) {
+    try { await wcProviderInstance.disconnect(); } catch { /* ignore */ }
+    wcProviderInstance = null;
+  }
+
   const modal = new WalletConnectModal({
     projectId,
     chains: ["eip155:1"],
@@ -118,9 +123,9 @@ export async function connectWalletConnect(): Promise<string> {
     });
 
     provider
-      .connect()
-      .then(async () => {
-        const accounts = provider.accounts;
+      .enable()
+      .then((accounts: string[]) => {
+        modal.closeModal();
         if (!accounts || accounts.length === 0) {
           reject(new Error("No accounts returned from WalletConnect."));
           return;
@@ -132,9 +137,10 @@ export async function connectWalletConnect(): Promise<string> {
         if (
           err?.message?.toLowerCase().includes("user rejected") ||
           err?.message?.toLowerCase().includes("cancelled") ||
-          err?.message?.toLowerCase().includes("closed")
+          err?.message?.toLowerCase().includes("closed") ||
+          err?.message?.toLowerCase().includes("qr modal")
         ) {
-          reject(new Error("Connection cancelled. Please approve the connection in your wallet."));
+          reject(new Error("Connection cancelled."));
         } else {
           reject(err);
         }
