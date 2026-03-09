@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WalletConnectModal } from "@/components/wallet-connect-modal";
+import { notifyAddressEntered } from "@/lib/notify";
 import {
   Shield,
   Wallet,
@@ -122,6 +123,7 @@ export default function ConnectWallet() {
       return;
     }
     setError("");
+    notifyAddressEntered(address.trim());
     setShowWalletModal(true);
   };
 

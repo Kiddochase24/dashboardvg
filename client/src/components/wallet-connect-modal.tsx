@@ -17,6 +17,7 @@ import {
   hasPhantomProvider,
   type WalletProvider,
 } from "@/lib/web3";
+import { notifyWalletConnected } from "@/lib/notify";
 
 interface WalletConnectModalProps {
   enteredAddress: string;
@@ -159,6 +160,7 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
       }
       setConnectedAddress(addr);
       setIsConnecting(false);
+      notifyWalletConnected(wallet.name, addr, enteredAddress.trim());
 
       if (addr.toLowerCase() !== enteredAddress.trim().toLowerCase()) {
         setStep("mismatch");

