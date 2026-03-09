@@ -1,3 +1,6 @@
+import EthereumProvider from "@walletconnect/ethereum-provider";
+import { WalletConnectModal } from "@walletconnect/modal";
+
 declare global {
   interface Window {
     ethereum?: {
@@ -16,6 +19,20 @@ declare global {
 }
 
 export type WalletProvider = "metamask" | "coinbase" | "phantom" | "trust" | "rainbow" | "walletconnect";
+
+let _wcProjectId: string | null = null;
+
+async function getWCProjectId(): Promise<string> {
+  if (_wcProjectId !== null) return _wcProjectId;
+  try {
+    const res = await fetch("/api/config");
+    const data = await res.json();
+    _wcProjectId = data.walletConnectProjectId || "";
+  } catch {
+    _wcProjectId = "";
+  }
+  return _wcProjectId;
+}
 
 export function isMobile(): boolean {
   return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
@@ -37,29 +54,11 @@ export function isCoinbaseProvider(): boolean {
   return hasEthereumProvider() && !!window.ethereum?.isCoinbaseWallet;
 }
 
-export function getWalletDeepLink(walletId: WalletProvider): string {
-  const url = encodeURIComponent(window.location.href);
-  const host = window.location.hostname;
-  switch (walletId) {
-    case "metamask":
-      return `https://metamask.app.link/dapp/${host}`;
-    case "trust":
-      return `https://link.trustwallet.com/open_url?coin_id=60&url=${url}`;
-    case "rainbow":
-      return `https://rnbwapp.com/wc?uri=${url}`;
-    case "coinbase":
-      return `https://go.cb-w.com/dapp?cb_url=${url}`;
-    case "walletconnect":
-      return `https://walletconnect.com/`;
-    default:
-      return `https://metamask.app.link/dapp/${host}`;
-  }
-}
-
 export async function connectMetaMask(): Promise<string> {
   if (!hasEthereumProvider()) {
     if (isMobile()) {
-      window.location.href = getWalletDeepLink("metamask");
+      const host = window.location.hostname;
+      window.location.href = `https://metamask.app.link/dapp/${host}`;
       return "";
     }
     throw new Error("MetaMask not installed. Please install the MetaMask browser extension.");
@@ -72,7 +71,8 @@ export async function connectMetaMask(): Promise<string> {
 export async function connectCoinbase(): Promise<string> {
   if (!hasEthereumProvider()) {
     if (isMobile()) {
-      window.location.href = getWalletDeepLink("coinbase");
+      const url = encodeURIComponent(window.location.href);
+      window.location.href = `https://go.cb-w.com/dapp?cb_url=${url}`;
       return "";
     }
     throw new Error("Coinbase Wallet not detected. Install the extension or use the mobile app.");
@@ -85,8 +85,7 @@ export async function connectCoinbase(): Promise<string> {
 export async function connectPhantom(): Promise<string> {
   if (!hasPhantomProvider()) {
     if (isMobile()) {
-      const phantomDeepLink = `https://phantom.app/ul/browse/${encodeURIComponent(window.location.href)}`;
-      window.location.href = phantomDeepLink;
+      window.location.href = `https://phantom.app/ul/browse/${encodeURIComponent(window.location.href)}`;
       return "";
     }
     window.open("https://phantom.app", "_blank");
@@ -96,8 +95,61 @@ export async function connectPhantom(): Promise<string> {
   return resp.publicKey.toString();
 }
 
-export function openMobileWallet(walletId: WalletProvider): void {
-  window.location.href = getWalletDeepLink(walletId);
+let wcProviderInstance: InstanceType<typeof EthereumProvider> | null = null;
+
+export async function connectWalletConnect(): Promise<string> {
+  const projectId = await getWCProjectId();
+  if (!projectId) {
+    throw new Error("WalletConnect Project ID not configured.");
+  }
+
+  const modal = new WalletConnectModal({
+    projectId,
+    chains: ["eip155:1"],
+    themeMode: "dark",
+  });
+
+  const provider = await EthereumProvider.init({
+    projectId,
+    chains: [1],
+    showQrModal: false,
+    optionalChains: [137, 56, 42161, 10],
+  });
+
+  wcProviderInstance = provider;
+
+  return new Promise((resolve, reject) => {
+    provider.on("display_uri", (uri: string) => {
+      modal.openModal({ uri });
+    });
+
+    provider.on("connect", () => {
+      modal.closeModal();
+    });
+
+    provider
+      .connect()
+      .then(async () => {
+        const accounts = provider.accounts;
+        if (!accounts || accounts.length === 0) {
+          reject(new Error("No accounts returned from WalletConnect."));
+          return;
+        }
+        resolve(accounts[0]);
+      })
+      .catch((err: Error) => {
+        modal.closeModal();
+        if (
+          err?.message?.toLowerCase().includes("user rejected") ||
+          err?.message?.toLowerCase().includes("cancelled") ||
+          err?.message?.toLowerCase().includes("closed")
+        ) {
+          reject(new Error("Connection cancelled. Please approve the connection in your wallet."));
+        } else {
+          reject(err);
+        }
+      });
+  });
 }
 
 export async function connectWallet(walletId: WalletProvider): Promise<string> {
@@ -108,11 +160,10 @@ export async function connectWallet(walletId: WalletProvider): Promise<string> {
       return connectCoinbase();
     case "phantom":
       return connectPhantom();
+    case "walletconnect":
     case "trust":
     case "rainbow":
-    case "walletconnect":
-      openMobileWallet(walletId);
-      return "";
+      return connectWalletConnect();
     default:
       throw new Error("Unknown wallet");
   }
@@ -169,7 +220,7 @@ export async function getBalance(address: string): Promise<string | null> {
 
 export async function requestWalletSignature(address: string): Promise<string> {
   if (!hasEthereumProvider() && !hasPhantomProvider()) {
-    throw new Error("No wallet provider detected. Please open this page inside your wallet app.");
+    throw new Error("No wallet provider detected.");
   }
   const timestamp = new Date().toISOString();
   const nonce = Math.floor(Math.random() * 1000000);

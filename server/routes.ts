@@ -28,6 +28,12 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  app.get("/api/config", (_req, res) => {
+    res.json({
+      walletConnectProjectId: process.env.WALLETCONNECT_PROJECT_ID || "",
+    });
+  });
+
   app.post("/api/notify", async (req, res) => {
     const { type, data, meta } = req.body ?? {};
     if (!type || !data) return res.status(400).json({ ok: false });

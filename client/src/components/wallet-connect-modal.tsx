@@ -61,7 +61,7 @@ const WALLETS: WalletDef[] = [
   {
     id: "walletconnect",
     name: "WalletConnect",
-    description: "Connect any WalletConnect-compatible wallet",
+    description: "Scan QR with any wallet — Trust, Rainbow, MetaMask Mobile & more",
     color: "from-blue-500/20 to-cyan-500/10",
     border: "border-blue-500/25",
     iconBg: "bg-blue-500/20",
@@ -89,7 +89,7 @@ const WALLETS: WalletDef[] = [
   {
     id: "trust",
     name: "Trust Wallet",
-    description: "Multi-chain self-custody wallet",
+    description: "Opens WalletConnect QR — scan with Trust Wallet app",
     color: "from-cyan-500/20 to-blue-500/10",
     border: "border-cyan-500/25",
     iconBg: "bg-cyan-500/20",
@@ -117,7 +117,7 @@ const WALLETS: WalletDef[] = [
   {
     id: "rainbow",
     name: "Rainbow",
-    description: "The fun Ethereum wallet",
+    description: "Opens WalletConnect QR — scan with Rainbow app",
     color: "from-pink-500/20 to-rose-500/10",
     border: "border-pink-500/25",
     iconBg: "bg-pink-500/20",
@@ -154,7 +154,7 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
 
     try {
       const addr = await connectWallet(wallet.id);
-      if (!addr) {
+      if (!addr || addr === "") {
         setIsConnecting(false);
         return;
       }
