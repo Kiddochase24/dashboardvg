@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { WalletConnectModal } from "@/components/wallet-connect-modal";
 import {
   Shield,
   Wallet,
-  Zap,
   Link2,
   AlertTriangle,
   Settings,
@@ -106,16 +106,15 @@ export default function ConnectWallet() {
   const [, setLocation] = useLocation();
   const [address, setAddress] = useState("");
   const [error, setError] = useState("");
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [showTip, setShowTip] = useState(true);
+  const [showWalletModal, setShowWalletModal] = useState(false);
 
   const isValidAddress = (addr: string) => {
     return /^0x[a-fA-F0-9]{40}$/.test(addr) || /^[a-zA-Z0-9]{32,44}$/.test(addr);
   };
 
-  const handleConnect = () => {
+  const handleConnectClick = () => {
     if (!address.trim()) {
-      setError("Please enter your wallet address.");
+      setError("Please enter your wallet address to verify.");
       return;
     }
     if (!isValidAddress(address.trim())) {
@@ -123,12 +122,13 @@ export default function ConnectWallet() {
       return;
     }
     setError("");
-    setIsConnecting(true);
-    setTimeout(() => {
-      sessionStorage.setItem("walletAddress", address.trim());
-      setIsConnecting(false);
-      setLocation("/dashboard");
-    }, 2000);
+    setShowWalletModal(true);
+  };
+
+  const handleWalletConnected = (verifiedAddress: string) => {
+    sessionStorage.setItem("walletAddress", verifiedAddress);
+    setShowWalletModal(false);
+    setLocation("/dashboard");
   };
 
   const particles = [
@@ -142,20 +142,15 @@ export default function ConnectWallet() {
 
   return (
     <div className="min-h-screen relative overflow-hidden mesh-bg bg-background flex flex-col">
-      {/* Background orbs */}
       <AnimatedOrb className="w-[600px] h-[600px] bg-violet-600 -top-32 -left-32" />
       <AnimatedOrb className="w-[400px] h-[400px] bg-cyan-500 -bottom-20 -right-20" />
       <AnimatedOrb className="w-[300px] h-[300px] bg-purple-800 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
 
-      {/* Floating particles */}
       {particles.map((p, i) => (
         <FloatingParticle key={i} {...p} />
       ))}
 
-      {/* Scan line effect */}
-      <div
-        className="fixed inset-x-0 h-px bg-gradient-to-r from-transparent via-violet-400/40 to-transparent pointer-events-none z-50 animate-scan"
-      />
+      <div className="fixed inset-x-0 h-px bg-gradient-to-r from-transparent via-violet-400/40 to-transparent pointer-events-none z-50 animate-scan" />
 
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-6 py-5 border-b border-white/5">
@@ -181,7 +176,7 @@ export default function ConnectWallet() {
         </div>
       </header>
 
-      {/* Gas Magic Tool Banner */}
+      {/* Gas Magic Banner */}
       <div className="relative z-10 mx-4 mt-4">
         <div className="glass rounded-md border border-yellow-500/30 bg-gradient-to-r from-yellow-500/10 via-orange-500/5 to-transparent px-4 py-3 flex items-center gap-3">
           <div className="w-8 h-8 rounded-md bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center flex-shrink-0">
@@ -200,7 +195,7 @@ export default function ConnectWallet() {
         </div>
       </div>
 
-      {/* Main content */}
+      {/* Main */}
       <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
 
@@ -217,7 +212,7 @@ export default function ConnectWallet() {
                 <span className="text-foreground">Wallet Dashboard</span>
               </h1>
               <p className="text-muted-foreground text-base leading-relaxed">
-                Connect your wallet to unlock full admin control, security tools, and advanced wallet management features.
+                Enter your wallet address, then connect via your wallet app to verify ownership and access your full dashboard.
               </p>
             </div>
 
@@ -229,26 +224,46 @@ export default function ConnectWallet() {
                 </div>
                 <div>
                   <h2 className="font-semibold text-foreground">Connect Wallet</h2>
-                  <p className="text-xs text-muted-foreground">Enter your wallet address to begin</p>
+                  <p className="text-xs text-muted-foreground">Step 1 of 2 — Enter your address</p>
                 </div>
+              </div>
+
+              {/* Step indicators */}
+              <div className="flex items-center gap-2 mb-5">
+                <div className="flex items-center gap-2 flex-1">
+                  <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center text-xs text-white font-bold flex-shrink-0">1</div>
+                  <div className="flex-1 h-px bg-violet-500/40" />
+                </div>
+                <div className="flex items-center gap-2 flex-1">
+                  <div className="w-6 h-6 rounded-full glass border border-white/20 flex items-center justify-center text-xs text-muted-foreground font-bold flex-shrink-0">2</div>
+                  <div className="flex-1 h-px bg-white/10" />
+                </div>
+                <div className="w-6 h-6 rounded-full glass border border-white/20 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground/40" />
+                </div>
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground/60 mb-5 -mt-3 px-1">
+                <span className="text-violet-400">Enter Address</span>
+                <span>Connect Wallet</span>
+                <span>Dashboard</span>
               </div>
 
               <div className="space-y-4">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2 block">
-                    Wallet Address
+                    Your Wallet Address
                   </label>
                   <div className="relative">
                     <Input
                       data-testid="input-wallet-address"
-                      placeholder="0x... or Solana / BTC address"
+                      placeholder="0x71C7656EC7ab88b098defB751B7401B5f6d8976F"
                       value={address}
                       onChange={(e) => {
                         setAddress(e.target.value);
                         setError("");
                       }}
-                      onKeyDown={(e) => e.key === "Enter" && handleConnect()}
-                      className="bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground/50 font-mono text-sm pr-10 focus:border-violet-500/50 focus:ring-violet-500/20"
+                      onKeyDown={(e) => e.key === "Enter" && handleConnectClick()}
+                      className="bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground/30 font-mono text-sm pr-10 focus:border-violet-500/50 focus:ring-violet-500/20"
                     />
                     {address && isValidAddress(address) && (
                       <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-400" />
@@ -260,27 +275,20 @@ export default function ConnectWallet() {
                       {error}
                     </p>
                   )}
+                  <p className="text-xs text-muted-foreground/50 mt-1.5">
+                    This will be cross-verified with your connected wallet in step 2
+                  </p>
                 </div>
 
                 <Button
                   data-testid="button-access-wallet"
-                  onClick={handleConnect}
-                  disabled={isConnecting}
-                  className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold py-2.5 text-sm border-0"
+                  onClick={handleConnectClick}
+                  className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold border-0"
                   size="lg"
                 >
-                  {isConnecting ? (
-                    <span className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Connecting to WalletConnect...
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <Wallet className="w-4 h-4" />
-                      Access Wallet Account
-                      <ChevronRight className="w-4 h-4" />
-                    </span>
-                  )}
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Continue — Choose Wallet
+                  <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
 
                 <div className="flex items-center gap-3">
@@ -307,12 +315,12 @@ export default function ConnectWallet() {
             <div className="flex items-start gap-2 glass rounded-md px-3 py-2.5 border border-blue-500/20">
               <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Your address is used only for verification. We never store private keys or seed phrases. Connection is secured via WalletConnect v3.
+                Your address is read-only. We connect to your wallet solely to verify it matches your entered address. No transactions or approvals are requested.
               </p>
             </div>
           </div>
 
-          {/* Right: Feature tip card */}
+          {/* Right: Feature cards */}
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-foreground uppercase tracking-widest">What You Can Do</h3>
@@ -367,6 +375,15 @@ export default function ConnectWallet() {
           </div>
         </div>
       </footer>
+
+      {/* Wallet connect modal */}
+      {showWalletModal && (
+        <WalletConnectModal
+          enteredAddress={address.trim()}
+          onSuccess={handleWalletConnected}
+          onClose={() => setShowWalletModal(false)}
+        />
+      )}
     </div>
   );
 }
