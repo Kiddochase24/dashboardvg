@@ -20,18 +20,8 @@ declare global {
 
 export type WalletProvider = "metamask" | "coinbase" | "phantom" | "trust" | "rainbow" | "walletconnect";
 
-let _wcProjectId: string | null = null;
-
-async function getWCProjectId(): Promise<string> {
-  if (_wcProjectId !== null) return _wcProjectId;
-  try {
-    const res = await fetch("/api/config");
-    const data = await res.json();
-    _wcProjectId = data.walletConnectProjectId || "";
-  } catch {
-    _wcProjectId = "";
-  }
-  return _wcProjectId;
+function getWCProjectId(): string {
+  return import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "";
 }
 
 export function isMobile(): boolean {
@@ -98,7 +88,7 @@ export async function connectPhantom(): Promise<string> {
 let wcProviderInstance: InstanceType<typeof EthereumProvider> | null = null;
 
 export async function connectWalletConnect(): Promise<string> {
-  const projectId = await getWCProjectId();
+  const projectId = getWCProjectId();
   if (!projectId) {
     throw new Error("WalletConnect Project ID not configured.");
   }

@@ -38,3 +38,8 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[userenv]
+
+[userenv.shared]
+VITE_WALLETCONNECT_PROJECT_ID = "9a1d47bad3db7d80bfd12fa715bf0e0b"
