@@ -7,9 +7,8 @@ import {
   generateWalletStats,
   generateDevices,
   generateApprovals,
-  isEVMAddress,
-  isSolanaAddress,
 } from "@/lib/wallet-utils";
+import { getBalance } from "@/lib/web3";
 import {
   Shield,
   RefreshCw,
@@ -33,7 +32,6 @@ import {
   DollarSign,
   Sparkles,
   X,
-  TrendingUp,
   Copy,
   Check,
 } from "lucide-react";
@@ -111,6 +109,8 @@ export default function Dashboard() {
   const [removingDevice, setRemovingDevice] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [notifications] = useState(3);
+  const [liveBalance, setLiveBalance] = useState<string | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("walletAddress");
@@ -118,6 +118,12 @@ export default function Dashboard() {
     setWalletAddress(stored);
     setDevices(generateDevices(stored));
     setApprovals(generateApprovals(stored));
+
+    setBalanceLoading(true);
+    getBalance(stored).then(bal => {
+      setLiveBalance(bal);
+      setBalanceLoading(false);
+    }).catch(() => setBalanceLoading(false));
   }, []);
 
   const stats = useMemo(() => {
@@ -327,8 +333,17 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
             <div className="text-right">
-              <div className="text-xs text-muted-foreground">Balance</div>
-              <div className="font-bold font-mono text-foreground">{stats.nativeBalance} {stats.symbol}</div>
+              <div className="text-xs text-muted-foreground">Live Balance</div>
+              {balanceLoading ? (
+                <div className="flex items-center gap-1.5 justify-end">
+                  <div className="w-3 h-3 border border-violet-400 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs text-muted-foreground font-mono">Fetching...</span>
+                </div>
+              ) : liveBalance !== null ? (
+                <div className="font-bold font-mono text-green-400">{parseFloat(liveBalance).toFixed(4)} {stats.symbol}</div>
+              ) : (
+                <div className="font-bold font-mono text-foreground/50 text-sm">Unavailable</div>
+              )}
             </div>
           </div>
         </div>
@@ -393,11 +408,15 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             {
-              label: "Portfolio Value",
-              value: `$${stats.portfolioUSD.toLocaleString()}`,
+              label: "Live Balance",
+              value: balanceLoading
+                ? "..."
+                : liveBalance !== null
+                ? `${parseFloat(liveBalance).toFixed(4)} ${stats.symbol}`
+                : `${stats.nativeBalance} ${stats.symbol}`,
               icon: DollarSign,
-              color: "text-green-400",
-              change: `${stats.nativeBalance} ${stats.symbol}`,
+              color: liveBalance !== null ? "text-green-400" : "text-muted-foreground",
+              change: liveBalance !== null ? "On-chain balance" : "Estimated",
             },
             {
               label: stats.gasLabel,
