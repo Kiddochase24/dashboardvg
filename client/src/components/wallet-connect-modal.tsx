@@ -6,18 +6,15 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
-  Wifi,
   Shield,
   ArrowLeft,
   ExternalLink,
-  Smartphone,
 } from "lucide-react";
 import { SiEthereum } from "react-icons/si";
 import {
   connectWallet,
   hasEthereumProvider,
   hasPhantomProvider,
-  isMobile,
   type WalletProvider,
 } from "@/lib/web3";
 
@@ -27,7 +24,7 @@ interface WalletConnectModalProps {
   onClose: () => void;
 }
 
-type ModalStep = "select" | "connecting" | "verify" | "mismatch" | "error" | "deeplink";
+type ModalStep = "select" | "connecting" | "verify" | "mismatch" | "error";
 
 interface WalletDef {
   id: WalletProvider;
@@ -36,8 +33,6 @@ interface WalletDef {
   color: string;
   border: string;
   iconBg: string;
-  mobile: boolean;
-  deeplink?: string;
   icon: JSX.Element;
 }
 
@@ -45,11 +40,10 @@ const WALLETS: WalletDef[] = [
   {
     id: "metamask",
     name: "MetaMask",
-    description: hasEthereumProvider() ? "Browser extension detected" : "Extension or mobile app",
+    description: "Most popular Ethereum wallet",
     color: "from-orange-500/20 to-amber-500/10",
     border: "border-orange-500/25",
     iconBg: "bg-orange-500/20",
-    mobile: true,
     icon: (
       <svg viewBox="0 0 35 33" fill="none" className="w-6 h-6">
         <path d="M32.9582 1L19.3228 11.1L21.7973 4.1z" fill="#E17726" />
@@ -66,11 +60,10 @@ const WALLETS: WalletDef[] = [
   {
     id: "walletconnect",
     name: "WalletConnect",
-    description: "Scan with any compatible wallet",
+    description: "Connect any WalletConnect-compatible wallet",
     color: "from-blue-500/20 to-cyan-500/10",
     border: "border-blue-500/25",
     iconBg: "bg-blue-500/20",
-    mobile: true,
     icon: (
       <svg viewBox="0 0 300 185" fill="none" className="w-6 h-6">
         <path d="M61.4385 36.2562C110.3 -12.0854 189.2 -12.0854 238.062 36.2562L243.912 42.0667C246.468 44.5995 246.468 48.7148 243.912 51.2476L223.347 71.582C222.069 72.8484 220.003 72.8484 218.725 71.582L210.676 63.6272C176.705 30.0056 123.295 30.0056 89.3242 63.6272L80.6893 72.1777C79.4117 73.4441 77.3453 73.4441 76.0677 72.1777L55.5028 51.8433C52.947 49.3105 52.947 45.1952 55.5028 42.6624L61.4385 36.2562ZM279.512 77.3113L297.86 95.5265C300.416 98.0593 300.416 102.175 297.86 104.707L215.384 186.322C212.828 188.855 208.695 188.855 206.139 186.322L147.568 128.199C146.929 127.566 145.896 127.566 145.257 128.199L86.6859 186.322C84.1301 188.855 79.9976 188.855 77.4418 186.322L-5.11573 104.707C-7.67147 102.175 -7.67147 98.0593 -5.11573 95.5265L13.2322 77.3113C15.7879 74.7785 19.9204 74.7785 22.4762 77.3113L81.0474 135.434C81.6865 136.067 82.7197 136.067 83.3588 135.434L141.929 77.3113C144.485 74.7785 148.618 74.7785 151.173 77.3113L209.745 135.434C210.384 136.067 211.417 136.067 212.056 135.434L270.627 77.3113C273.183 74.7785 277.315 74.7785 279.512 77.3113Z" fill="#3B99FC" />
@@ -80,11 +73,10 @@ const WALLETS: WalletDef[] = [
   {
     id: "coinbase",
     name: "Coinbase Wallet",
-    description: "Coinbase Wallet extension or app",
+    description: "Self-custody crypto wallet by Coinbase",
     color: "from-blue-600/20 to-blue-400/10",
     border: "border-blue-600/25",
     iconBg: "bg-blue-600/20",
-    mobile: true,
     icon: (
       <svg viewBox="0 0 1024 1024" className="w-6 h-6">
         <rect width="1024" height="1024" rx="200" fill="#0052FF" />
@@ -96,11 +88,10 @@ const WALLETS: WalletDef[] = [
   {
     id: "trust",
     name: "Trust Wallet",
-    description: "Opens in Trust Wallet app browser",
+    description: "Multi-chain self-custody wallet",
     color: "from-cyan-500/20 to-blue-500/10",
     border: "border-cyan-500/25",
     iconBg: "bg-cyan-500/20",
-    mobile: true,
     icon: (
       <svg viewBox="0 0 512 512" className="w-6 h-6">
         <path d="M256 0L48 96v160c0 138.8 88 268.8 208 320 120-51.2 208-181.2 208-320V96L256 0z" fill="#3375BB" />
@@ -111,11 +102,10 @@ const WALLETS: WalletDef[] = [
   {
     id: "phantom",
     name: "Phantom",
-    description: hasPhantomProvider() ? "Phantom extension detected" : "Solana & multi-chain wallet",
+    description: "Solana, Ethereum & Polygon wallet",
     color: "from-violet-500/20 to-purple-500/10",
     border: "border-violet-500/25",
     iconBg: "bg-violet-500/20",
-    mobile: true,
     icon: (
       <svg viewBox="0 0 128 128" className="w-6 h-6">
         <rect width="128" height="128" rx="24" fill="#AB9FF2" />
@@ -126,22 +116,21 @@ const WALLETS: WalletDef[] = [
   {
     id: "rainbow",
     name: "Rainbow",
-    description: "Opens in Rainbow Wallet app",
+    description: "The fun Ethereum wallet",
     color: "from-pink-500/20 to-rose-500/10",
     border: "border-pink-500/25",
     iconBg: "bg-pink-500/20",
-    mobile: true,
     icon: (
       <svg viewBox="0 0 120 120" className="w-6 h-6">
         <defs>
-          <radialGradient id="rg" cx="50%" cy="50%" r="50%">
+          <radialGradient id="rg2" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#FFD700" />
             <stop offset="30%" stopColor="#FF6B35" />
             <stop offset="60%" stopColor="#C71585" />
             <stop offset="100%" stopColor="#4B0082" />
           </radialGradient>
         </defs>
-        <circle cx="60" cy="60" r="60" fill="url(#rg)" />
+        <circle cx="60" cy="60" r="60" fill="url(#rg2)" />
         <path d="M20 60 Q60 20 100 60" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" />
         <path d="M28 68 Q60 32 92 68" stroke="white" strokeWidth="6" fill="none" strokeLinecap="round" opacity="0.8" />
       </svg>
@@ -159,14 +148,6 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
   const handleWalletSelect = async (wallet: WalletDef) => {
     setSelectedWallet(wallet);
     setErrorMsg("");
-
-    const MOBILE_ONLY = wallet.id === "trust" || wallet.id === "rainbow" || wallet.id === "walletconnect";
-
-    if (MOBILE_ONLY && !isMobile()) {
-      setStep("deeplink");
-      return;
-    }
-
     setStep("connecting");
     setIsConnecting(true);
 
@@ -179,10 +160,7 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
       setConnectedAddress(addr);
       setIsConnecting(false);
 
-      const normalizedConnected = addr.toLowerCase();
-      const normalizedEntered = enteredAddress.trim().toLowerCase();
-
-      if (normalizedConnected !== normalizedEntered) {
+      if (addr.toLowerCase() !== enteredAddress.trim().toLowerCase()) {
         setStep("mismatch");
       } else {
         setStep("verify");
@@ -190,12 +168,12 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
     } catch (err: unknown) {
       setIsConnecting(false);
       const msg = err instanceof Error ? err.message : "Connection failed";
-      if (msg.toLowerCase().includes("user rejected") || msg.toLowerCase().includes("denied")) {
-        setErrorMsg("Connection rejected. Please approve the connection request in your wallet.");
-      } else if (msg.toLowerCase().includes("not installed") || msg.toLowerCase().includes("not detected")) {
-        setErrorMsg(msg);
-        setStep("error");
-        return;
+      if (
+        msg.toLowerCase().includes("user rejected") ||
+        msg.toLowerCase().includes("denied") ||
+        msg.toLowerCase().includes("cancelled")
+      ) {
+        setErrorMsg("Connection rejected. Please approve the connection request in your wallet and try again.");
       } else {
         setErrorMsg(msg);
       }
@@ -203,22 +181,8 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
     }
   };
 
-  const handleDeeplink = () => {
-    if (!selectedWallet) return;
-    const DEEPLINKS: Record<string, string> = {
-      trust: `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(window.location.href)}`,
-      rainbow: `https://rnbwapp.com/wc?uri=${encodeURIComponent(window.location.href)}`,
-      walletconnect: `https://walletconnect.com/`,
-    };
-    const url = DEEPLINKS[selectedWallet.id] || "#";
-    window.open(url, "_blank");
-  };
-
   const shortAddr = (addr: string) =>
     addr ? `${addr.slice(0, 8)}...${addr.slice(-6)}` : "";
-
-  const isInjectedWallet = (id: WalletProvider) =>
-    id === "metamask" || id === "coinbase" || id === "phantom";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -236,7 +200,7 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-foreground">Connect Wallet</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Select your wallet to continue</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Select your wallet provider to continue</p>
               </div>
               <button
                 data-testid="button-close-wallet-modal"
@@ -256,7 +220,6 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
 
             <div className="space-y-2">
               {WALLETS.map((wallet) => {
-                const injected = isInjectedWallet(wallet.id);
                 const detected =
                   (wallet.id === "metamask" && hasEthereumProvider()) ||
                   (wallet.id === "coinbase" && hasEthereumProvider()) ||
@@ -266,7 +229,7 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
                     key={wallet.id}
                     data-testid={`button-wallet-${wallet.id}`}
                     onClick={() => handleWalletSelect(wallet)}
-                    className={`w-full glass rounded-xl border ${wallet.border} bg-gradient-to-r ${wallet.color} p-3.5 flex items-center gap-3 text-left group hover-elevate relative`}
+                    className={`w-full glass rounded-xl border ${wallet.border} bg-gradient-to-r ${wallet.color} p-3.5 flex items-center gap-3 text-left group hover-elevate`}
                   >
                     <div className={`w-10 h-10 rounded-md ${wallet.iconBg} flex items-center justify-center flex-shrink-0`}>
                       {wallet.icon}
@@ -276,12 +239,6 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
                         <span className="font-semibold text-sm text-foreground">{wallet.name}</span>
                         {detected && (
                           <span className="text-xs bg-green-500/20 border border-green-500/30 text-green-400 rounded-full px-1.5 py-0.5 font-mono leading-none">Detected</span>
-                        )}
-                        {!injected && (
-                          <span className="text-xs bg-blue-500/15 border border-blue-500/20 text-blue-400 rounded-full px-1.5 py-0.5 font-mono leading-none">
-                            <Smartphone className="w-2.5 h-2.5 inline mr-0.5" />
-                            App
-                          </span>
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">{wallet.description}</div>
@@ -318,24 +275,22 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
                 Connecting to {selectedWallet.name}
               </h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                {isConnecting
-                  ? `Check your ${selectedWallet.name} — a connection request is waiting for your approval`
-                  : "Processing..."}
+                Check your {selectedWallet.name} — a connection request is waiting for your approval
               </p>
             </div>
 
-            <div className="w-full glass rounded-md border border-white/5 px-4 py-3 text-left space-y-1">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="w-full glass rounded-md border border-white/5 px-4 py-3 text-left space-y-1.5">
+              <div className="flex items-center gap-2 text-xs text-violet-400">
                 <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
-                <span>Opening {selectedWallet.name}...</span>
+                <span>Requesting connection from {selectedWallet.name}...</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground/50">
                 <div className="w-2 h-2 rounded-full bg-white/10" />
-                <span>Waiting for approval</span>
+                <span>Waiting for wallet approval</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground/30">
                 <div className="w-2 h-2 rounded-full bg-white/10" />
-                <span>Verifying address</span>
+                <span>Verifying address match</span>
               </div>
             </div>
 
@@ -349,70 +304,7 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
           </div>
         )}
 
-        {/* DEEPLINK (mobile wallet on desktop) */}
-        {step === "deeplink" && selectedWallet && (
-          <div className="p-6 space-y-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-md flex items-center justify-center flex-shrink-0">
-                  {selectedWallet.icon}
-                </div>
-                <div>
-                  <h2 className="font-bold text-foreground">Open in {selectedWallet.name}</h2>
-                  <p className="text-xs text-muted-foreground">Continue on your mobile device</p>
-                </div>
-              </div>
-              <button onClick={() => setStep("select")}
-                className="w-8 h-8 glass rounded-md border border-white/10 flex items-center justify-center text-muted-foreground">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="glass rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 space-y-3">
-              <div className="flex items-start gap-2">
-                <Smartphone className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm text-foreground font-semibold mb-1">Mobile Wallet Required</p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {selectedWallet.name} is a mobile wallet. Tap the button below to open the VaultGuard
-                    dashboard directly inside <strong>{selectedWallet.name}</strong>'s built-in browser, where you can
-                    connect and verify your wallet natively.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">What happens next</p>
-              {[
-                `${selectedWallet.name} app opens on your device`,
-                "VaultGuard loads in the wallet's secure browser",
-                "Connect your wallet with one tap",
-                "Return here after connecting",
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <div className="w-5 h-5 rounded-full bg-violet-500/20 flex items-center justify-center flex-shrink-0">
-                    <span className="text-violet-400 font-mono">{i + 1}</span>
-                  </div>
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-
-            <Button onClick={handleDeeplink}
-              className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold border-0">
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Open in {selectedWallet.name}
-            </Button>
-
-            <button onClick={() => setStep("select")}
-              className="w-full text-xs text-muted-foreground/60 flex items-center justify-center gap-1">
-              <ArrowLeft className="w-3 h-3" /> Choose a different wallet
-            </button>
-          </div>
-        )}
-
-        {/* VERIFY - address matched */}
+        {/* VERIFY */}
         {step === "verify" && selectedWallet && (
           <div className="p-6 space-y-5">
             <div className="flex items-center justify-between">
@@ -437,12 +329,11 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
                   <SiEthereum className="w-3.5 h-3.5 text-white" />
                 </div>
-                <code data-testid="text-detected-address"
-                  className="text-sm font-mono text-foreground break-all">
+                <code data-testid="text-detected-address" className="text-sm font-mono text-foreground break-all">
                   {connectedAddress}
                 </code>
               </div>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
                 <p className="text-xs text-green-300">Wallet address matches your entered address</p>
               </div>
@@ -464,7 +355,7 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
           </div>
         )}
 
-        {/* MISMATCH - different wallet connected */}
+        {/* MISMATCH */}
         {step === "mismatch" && selectedWallet && (
           <div className="p-6 space-y-5">
             <div className="flex items-center justify-between">
@@ -484,7 +375,7 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
             </div>
 
             <div className="glass rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Wallet returned a different address</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Different address connected</p>
               <div className="space-y-2">
                 <div>
                   <p className="text-xs text-muted-foreground/60 mb-1">You entered:</p>
@@ -503,11 +394,9 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
                 <ArrowLeft className="w-4 h-4 mr-1.5" />
                 Try Again
               </Button>
-              <Button
-                onClick={() => onSuccess(connectedAddress)}
+              <Button onClick={() => onSuccess(connectedAddress)}
                 className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-semibold border-0">
-                <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                Use Wallet Address
+                Use This Address
               </Button>
             </div>
           </div>
@@ -542,10 +431,10 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
                 Try Another Wallet
               </Button>
               {selectedWallet && (
-                <Button onClick={handleDeeplink}
+                <Button onClick={() => window.open(`https://${selectedWallet.id === "metamask" ? "metamask.io" : selectedWallet.id === "phantom" ? "phantom.app" : selectedWallet.id + ".io"}`, "_blank")}
                   className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold border-0">
                   <ExternalLink className="w-4 h-4 mr-1.5" />
-                  Open {selectedWallet.name}
+                  Get {selectedWallet.name}
                 </Button>
               )}
             </div>

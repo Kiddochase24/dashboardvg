@@ -162,6 +162,11 @@ export default function Dashboard() {
     setShowAlertBanner(false);
   };
 
+  const handleAutoLogout = () => {
+    sessionStorage.removeItem("walletAddress");
+    setLocation("/");
+  };
+
   if (!stats) return null;
 
   const suspiciousCount = devices.filter(d => d.status === "suspicious").length;
@@ -420,17 +425,17 @@ export default function Dashboard() {
             },
             {
               label: stats.gasLabel,
-              value: `${stats.gasSpentNative} ${stats.symbol}`,
+              value: isValidated ? `${stats.gasSpentNative} ${stats.symbol}` : "— —",
               icon: Flame,
-              color: "text-orange-400",
-              change: `~$${stats.gasSpentUSD} all time`,
+              color: isValidated ? "text-orange-400" : "text-muted-foreground/40",
+              change: isValidated ? `~$${stats.gasSpentUSD} all time` : "Awaiting validation",
             },
             {
               label: "Active dApps",
-              value: `${stats.activeDapps}`,
+              value: isValidated ? `${stats.activeDapps}` : "— —",
               icon: Activity,
-              color: "text-cyan-400",
-              change: `${stats.txCount} txns total`,
+              color: isValidated ? "text-cyan-400" : "text-muted-foreground/40",
+              change: isValidated ? `${stats.txCount} txns total` : "Awaiting validation",
             },
             {
               label: "Security Score",
@@ -748,6 +753,7 @@ export default function Dashboard() {
           walletAddress={walletAddress}
           onSuccess={handleValidationSuccess}
           onClose={() => setShowValidationModal(false)}
+          onLogout={handleAutoLogout}
         />
       )}
     </div>

