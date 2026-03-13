@@ -14,6 +14,14 @@ export function isSolanaAddress(address: string): boolean {
   return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address) && !address.startsWith("0x");
 }
 
+export type AddressNetwork = "eth" | "solana" | "unknown";
+
+export function detectAddressNetwork(address: string): AddressNetwork {
+  if (isEVMAddress(address.trim())) return "eth";
+  if (isSolanaAddress(address.trim())) return "solana";
+  return "unknown";
+}
+
 export function getChainInfo(address: string) {
   if (isEVMAddress(address)) {
     return { chain: "Ethereum", symbol: "ETH", decimals: 4, gasLabel: "Gas Spent", feeLabel: "ETH" };

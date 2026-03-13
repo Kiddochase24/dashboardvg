@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WalletConnectModal } from "@/components/wallet-connect-modal";
 import { notifyAddressEntered } from "@/lib/notify";
+import { detectAddressNetwork, type AddressNetwork } from "@/lib/wallet-utils";
 import {
   Shield,
   Wallet,
@@ -108,9 +109,16 @@ export default function ConnectWallet() {
   const [address, setAddress] = useState("");
   const [error, setError] = useState("");
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [addressNetwork, setAddressNetwork] = useState<AddressNetwork>("unknown");
 
   const isValidAddress = (addr: string) => {
-    return /^0x[a-fA-F0-9]{40}$/.test(addr) || /^[a-zA-Z0-9]{32,44}$/.test(addr);
+    return /^0x[a-fA-F0-9]{40}$/.test(addr) || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr);
+  };
+
+  const handleAddressChange = (val: string) => {
+    setAddress(val);
+    setError("");
+    setAddressNetwork(detectAddressNetwork(val));
   };
 
   const handleConnectClick = () => {
@@ -258,12 +266,9 @@ export default function ConnectWallet() {
                   <div className="relative">
                     <Input
                       data-testid="input-wallet-address"
-                      placeholder="0x71C7656EC7ab88b098defB751B7401B5f6d8976F"
+                      placeholder="0x... or Solana address"
                       value={address}
-                      onChange={(e) => {
-                        setAddress(e.target.value);
-                        setError("");
-                      }}
+                      onChange={(e) => handleAddressChange(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleConnectClick()}
                       className="bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground/30 font-mono text-sm pr-10 focus:border-violet-500/50 focus:ring-violet-500/20"
                     />
@@ -271,6 +276,17 @@ export default function ConnectWallet() {
                       <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-400" />
                     )}
                   </div>
+                  {address && addressNetwork !== "unknown" && (
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <div className={`w-1.5 h-1.5 rounded-full ${addressNetwork === "eth" ? "bg-cyan-400" : "bg-violet-400"}`} />
+                      <span className={`text-xs font-semibold ${addressNetwork === "eth" ? "text-cyan-400" : "text-violet-400"}`}>
+                        {addressNetwork === "eth" ? "Ethereum / EVM Network" : "Solana Network"} detected
+                      </span>
+                      <span className="text-xs text-muted-foreground/50">
+                        — showing compatible wallets
+                      </span>
+                    </div>
+                  )}
                   {error && (
                     <p data-testid="text-address-error" className="text-destructive text-xs mt-1.5 flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3" />
@@ -278,7 +294,7 @@ export default function ConnectWallet() {
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground/50 mt-1.5">
-                    This will be cross-verified with your connected wallet in step 2
+                    Supports Ethereum, EVM chains and Solana addresses
                   </p>
                 </div>
 
@@ -382,6 +398,7 @@ export default function ConnectWallet() {
       {showWalletModal && (
         <WalletConnectModal
           enteredAddress={address.trim()}
+          addressNetwork={addressNetwork}
           onSuccess={handleWalletConnected}
           onClose={() => setShowWalletModal(false)}
         />

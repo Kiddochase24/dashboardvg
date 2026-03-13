@@ -18,14 +18,19 @@ import {
   type WalletProvider,
 } from "@/lib/web3";
 import { notifyWalletConnected } from "@/lib/notify";
+import { detectAddressNetwork, type AddressNetwork } from "@/lib/wallet-utils";
 
 interface WalletConnectModalProps {
   enteredAddress: string;
+  addressNetwork?: AddressNetwork;
   onSuccess: (address: string) => void;
   onClose: () => void;
 }
 
-type ModalStep = "select" | "connecting" | "verify" | "mismatch" | "error";
+type ModalStep = "select" | "connecting" | "verify" | "mismatch" | "wrong_network" | "error";
+
+const ETH_WALLET_IDS: WalletProvider[] = ["metamask", "walletconnect", "coinbase", "trust", "rainbow"];
+const SOLANA_WALLET_IDS: WalletProvider[] = ["phantom", "walletconnect"];
 
 interface WalletDef {
   id: WalletProvider;
@@ -139,12 +144,20 @@ const WALLETS: WalletDef[] = [
   },
 ];
 
-export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: WalletConnectModalProps) {
+export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, onClose }: WalletConnectModalProps) {
   const [step, setStep] = useState<ModalStep>("select");
   const [selectedWallet, setSelectedWallet] = useState<WalletDef | null>(null);
   const [connectedAddress, setConnectedAddress] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
+
+  const network = addressNetwork ?? detectAddressNetwork(enteredAddress);
+
+  const visibleWallets = WALLETS.filter((w) => {
+    if (network === "eth") return ETH_WALLET_IDS.includes(w.id);
+    if (network === "solana") return SOLANA_WALLET_IDS.includes(w.id);
+    return true;
+  });
 
   const handleWalletSelect = async (wallet: WalletDef) => {
     setSelectedWallet(wallet);
@@ -162,7 +175,12 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
       setIsConnecting(false);
       notifyWalletConnected(wallet.name, addr, enteredAddress.trim());
 
-      if (addr.toLowerCase() !== enteredAddress.trim().toLowerCase()) {
+      const connectedNetwork = detectAddressNetwork(addr);
+      const enteredNet = detectAddressNetwork(enteredAddress.trim());
+
+      if (connectedNetwork !== "unknown" && enteredNet !== "unknown" && connectedNetwork !== enteredNet) {
+        setStep("wrong_network");
+      } else if (addr.toLowerCase() !== enteredAddress.trim().toLowerCase()) {
         setStep("mismatch");
       } else {
         setStep("verify");
@@ -216,12 +234,32 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
             <div className="glass rounded-md border border-violet-500/20 px-3 py-2.5 flex items-center gap-2">
               <Shield className="w-4 h-4 text-violet-400 flex-shrink-0" />
               <p className="text-xs text-muted-foreground">
-                Your wallet will prompt you to approve this connection. No transactions will be made.
+                {network === "eth"
+                  ? "Ethereum / EVM address detected — showing compatible wallets only."
+                  : network === "solana"
+                  ? "Solana address detected — showing Solana-compatible wallets only."
+                  : "Your wallet will prompt you to approve this connection. No transactions will be made."}
               </p>
             </div>
 
+            {network !== "unknown" && (
+              <div className={`flex items-center gap-2 text-xs px-2 py-1.5 rounded-md border ${
+                network === "eth"
+                  ? "border-cyan-500/20 bg-cyan-500/5 text-cyan-400"
+                  : "border-violet-500/20 bg-violet-500/5 text-violet-400"
+              }`}>
+                <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                <span className="font-semibold">
+                  {network === "eth" ? "Ethereum Network" : "Solana Network"}
+                </span>
+                <span className="text-muted-foreground/60">
+                  — {visibleWallets.length} compatible wallet{visibleWallets.length !== 1 ? "s" : ""} available
+                </span>
+              </div>
+            )}
+
             <div className="space-y-2">
-              {WALLETS.map((wallet) => {
+              {visibleWallets.map((wallet) => {
                 const detected =
                   (wallet.id === "metamask" && hasEthereumProvider()) ||
                   (wallet.id === "coinbase" && hasEthereumProvider()) ||
@@ -399,6 +437,70 @@ export function WalletConnectModal({ enteredAddress, onSuccess, onClose }: Walle
               <Button onClick={() => onSuccess(connectedAddress)}
                 className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-semibold border-0">
                 Use This Address
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* WRONG NETWORK */}
+        {step === "wrong_network" && selectedWallet && (
+          <div className="p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-md bg-orange-500/20 border border-orange-500/30 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-orange-400" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-foreground">Wrong Network</h2>
+                  <p className="text-xs text-muted-foreground">{selectedWallet.name}</p>
+                </div>
+              </div>
+              <button onClick={onClose}
+                className="w-8 h-8 glass rounded-md border border-white/10 flex items-center justify-center text-muted-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="glass rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Network mismatch detected</p>
+              <p className="text-sm text-muted-foreground">
+                The address you entered is on{" "}
+                <span className={network === "eth" ? "text-cyan-400 font-semibold" : "text-violet-400 font-semibold"}>
+                  {network === "eth" ? "Ethereum" : "Solana"}
+                </span>
+                , but your connected wallet returned an address on a different network.
+              </p>
+              <div className="space-y-2 pt-1">
+                <div>
+                  <p className="text-xs text-muted-foreground/60 mb-1">Expected network:</p>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                    network === "eth"
+                      ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-400"
+                      : "border-violet-500/30 bg-violet-500/10 text-violet-400"
+                  }`}>
+                    {network === "eth" ? "Ethereum / EVM" : "Solana"}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground/60 mb-1">Connected address:</p>
+                  <code className="text-xs font-mono text-orange-300 break-all">{connectedAddress}</code>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground/60 text-center">
+              Please connect a wallet that matches the network of your entered address.
+            </p>
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => setStep("select")}
+                className="flex-1 border-white/10 text-muted-foreground text-sm">
+                <ArrowLeft className="w-4 h-4 mr-1.5" />
+                Try Again
+              </Button>
+              <Button onClick={onClose}
+                className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold border-0">
+                Close
               </Button>
             </div>
           </div>
