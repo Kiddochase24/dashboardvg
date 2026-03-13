@@ -113,7 +113,7 @@ export async function connectWalletConnect(): Promise<string> {
       name: "VaultGuard",
       description: "Web3 Wallet Security Dashboard",
       url: window.location.origin,
-      icons: [`${window.location.origin}/favicon.ico`],
+      icons: [`${window.location.origin}/favicon.svg`],
     },
   });
 
