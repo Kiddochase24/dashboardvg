@@ -152,6 +152,31 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
   const [isConnecting, setIsConnecting] = useState(false);
 
   const network = addressNetwork ?? detectAddressNetwork(enteredAddress);
+  const [switching, setSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState("");
+
+  const handleChangeNetwork = async () => {
+    setSwitchError("");
+    if (network === "eth") {
+      setSwitching(true);
+      try {
+        const win = window as unknown as { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } };
+        if (!win.ethereum) throw new Error("No Ethereum provider found");
+        await win.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0x1" }],
+        });
+        setSwitching(false);
+        setStep("select");
+      } catch (err: unknown) {
+        setSwitching(false);
+        const msg = err instanceof Error ? err.message : "Could not switch network";
+        setSwitchError(msg.toLowerCase().includes("rejected") ? "Network switch rejected." : "Failed to switch network. Please switch manually in your wallet.");
+      }
+    } else {
+      setSwitchError("MetaMask cannot connect to Solana. Please use a Solana-compatible wallet like Phantom.");
+    }
+  };
 
   const visibleWallets = WALLETS.filter((w) => {
     if (network === "eth") return ETH_WALLET_IDS.includes(w.id);
@@ -488,18 +513,45 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
               </div>
             </div>
 
+            {switchError && (
+              <div className="glass rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 flex items-start gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-red-400">{switchError}</p>
+              </div>
+            )}
+
             <p className="text-xs text-muted-foreground/60 text-center">
-              Please connect a wallet that matches the network of your entered address.
+              {network === "eth"
+                ? 'Switch your wallet to Ethereum Mainnet, or go back and use a different wallet.'
+                : 'MetaMask cannot access Solana. Please go back and use Phantom instead.'}
             </p>
 
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep("select")}
-                className="flex-1 border-white/10 text-muted-foreground text-sm">
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" onClick={() => { setSwitchError(""); setStep("select"); }}
+                className="flex-1 border-white/10 text-muted-foreground text-sm min-w-[100px]">
                 <ArrowLeft className="w-4 h-4 mr-1.5" />
                 Try Again
               </Button>
-              <Button onClick={onClose}
-                className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold border-0">
+              <Button
+                data-testid="button-change-network"
+                onClick={handleChangeNetwork}
+                disabled={switching}
+                className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-semibold border-0 min-w-[140px]"
+              >
+                {switching ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                    Switching…
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="w-4 h-4 mr-1.5" />
+                    Change Network
+                  </>
+                )}
+              </Button>
+              <Button variant="outline" onClick={onClose}
+                className="flex-1 border-white/10 text-muted-foreground text-sm min-w-[80px]">
                 Close
               </Button>
             </div>
