@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   X,
@@ -154,6 +154,15 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
   const network = addressNetwork ?? detectAddressNetwork(enteredAddress);
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState("");
+  const [connectSeconds, setConnectSeconds] = useState(0);
+  const connectIdRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   const handleChangeNetwork = async () => {
     setSwitchError("");
@@ -185,17 +194,34 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
   });
 
   const handleWalletSelect = async (wallet: WalletDef) => {
+    const thisId = ++connectIdRef.current;
     setSelectedWallet(wallet);
     setErrorMsg("");
+    setConnectSeconds(0);
     setStep("connecting");
     setIsConnecting(true);
 
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setConnectSeconds((s) => s + 1);
+    }, 1000);
+
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Connection timed out. Please check your wallet and try again.")), 45000)
+    );
+
     try {
-      const addr = await connectWallet(wallet.id);
+      const addr = await Promise.race([connectWallet(wallet.id), timeout]);
+
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (connectIdRef.current !== thisId) return;
+
       if (!addr || addr === "") {
         setIsConnecting(false);
+        setStep("select");
         return;
       }
+
       setConnectedAddress(addr);
       setIsConnecting(false);
       notifyWalletConnected(wallet.name, addr, enteredAddress.trim());
@@ -211,6 +237,8 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
         setStep("verify");
       }
     } catch (err: unknown) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (connectIdRef.current !== thisId) return;
       setIsConnecting(false);
       const msg = err instanceof Error ? err.message : "Connection failed";
       if (
@@ -224,6 +252,14 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
       }
       setStep("error");
     }
+  };
+
+  const handleCancelConnect = () => {
+    connectIdRef.current++;
+    if (timerRef.current) clearInterval(timerRef.current);
+    setIsConnecting(false);
+    setConnectSeconds(0);
+    setStep("select");
   };
 
   const shortAddr = (addr: string) =>
@@ -359,13 +395,24 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
               </div>
             </div>
 
-            <button
-              data-testid="button-cancel-connecting"
-              onClick={() => { setStep("select"); setErrorMsg(""); }}
-              className="text-xs text-muted-foreground/60 flex items-center gap-1"
-            >
-              <ArrowLeft className="w-3 h-3" /> Try another wallet
-            </button>
+            {connectSeconds >= 10 && (
+              <div className="glass rounded-md border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 text-xs text-yellow-400/80 text-center">
+                Taking longer than expected — check your wallet app for a pending approval prompt.
+              </div>
+            )}
+
+            <div className="flex flex-col items-center gap-2">
+              {connectSeconds > 0 && (
+                <span className="text-xs text-muted-foreground/40">{connectSeconds}s elapsed · times out at 45s</span>
+              )}
+              <button
+                data-testid="button-cancel-connecting"
+                onClick={handleCancelConnect}
+                className="text-xs text-muted-foreground/60 flex items-center gap-1 hover:text-muted-foreground transition-colors"
+              >
+                <ArrowLeft className="w-3 h-3" /> Cancel &amp; try another wallet
+              </button>
+            </div>
           </div>
         )}
 
