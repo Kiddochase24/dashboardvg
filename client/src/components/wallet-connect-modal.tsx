@@ -18,7 +18,7 @@ import {
   type WalletProvider,
 } from "@/lib/web3";
 import { notifyWalletConnected } from "@/lib/notify";
-import { detectAddressNetwork, type AddressNetwork } from "@/lib/wallet-utils";
+import { detectAddressNetwork, getNetworkLabel, getNetworkColor, type AddressNetwork } from "@/lib/wallet-utils";
 
 interface WalletConnectModalProps {
   enteredAddress: string;
@@ -225,17 +225,7 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
       setConnectedAddress(addr);
       setIsConnecting(false);
       notifyWalletConnected(wallet.name, addr, enteredAddress.trim());
-
-      const connectedNetwork = detectAddressNetwork(addr);
-      const enteredNet = detectAddressNetwork(enteredAddress.trim());
-
-      if (connectedNetwork !== "unknown" && enteredNet !== "unknown" && connectedNetwork !== enteredNet) {
-        setStep("wrong_network");
-      } else if (addr.toLowerCase() !== enteredAddress.trim().toLowerCase()) {
-        setStep("mismatch");
-      } else {
-        setStep("verify");
-      }
+      setStep("verify");
     } catch (err: unknown) {
       if (timerRef.current) clearInterval(timerRef.current);
       if (connectIdRef.current !== thisId) return;
@@ -435,35 +425,60 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
               </button>
             </div>
 
-            <div className="glass rounded-xl border border-green-500/20 bg-green-500/5 p-4 space-y-3">
-              <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Address Verified</p>
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
-                  <SiEthereum className="w-3.5 h-3.5 text-white" />
-                </div>
-                <code data-testid="text-detected-address" className="text-sm font-mono text-foreground break-all">
-                  {connectedAddress}
-                </code>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
-                <p className="text-xs text-green-300">Wallet address matches your entered address</p>
-              </div>
-            </div>
+            {(() => {
+              const connNet = detectAddressNetwork(connectedAddress);
+              const entNet = detectAddressNetwork(enteredAddress.trim());
+              const hasDiff = connectedAddress.toLowerCase() !== enteredAddress.trim().toLowerCase();
+              return (
+                <>
+                  <div className="glass rounded-xl border border-green-500/20 bg-green-500/5 p-4 space-y-3">
+                    <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Connected Wallet</p>
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                        <span className={`text-xs font-semibold ${getNetworkColor(connNet)}`}>
+                          {getNetworkLabel(connNet)}
+                        </span>
+                      </div>
+                      <code data-testid="text-detected-address" className="text-sm font-mono text-foreground break-all">
+                        {connectedAddress}
+                      </code>
+                    </div>
+                  </div>
 
-            <div className="flex gap-3">
-              <Button data-testid="button-wrong-wallet" variant="outline"
-                onClick={() => setStep("select")}
-                className="flex-1 border-white/10 text-muted-foreground text-sm">
-                Wrong Wallet
-              </Button>
-              <Button data-testid="button-confirm-address"
-                onClick={() => onSuccess(connectedAddress)}
-                className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold border-0">
-                <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                Confirm & Enter
-              </Button>
-            </div>
+                  {hasDiff && (
+                    <div className="glass rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4 space-y-2">
+                      <p className="text-xs font-semibold text-yellow-400 uppercase tracking-widest">You entered a different address</p>
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className={`text-xs font-semibold ${getNetworkColor(entNet)}`}>
+                            {getNetworkLabel(entNet)}
+                          </span>
+                        </div>
+                        <code className="text-xs font-mono text-foreground/60 break-all">{enteredAddress.trim()}</code>
+                      </div>
+                      <p className="text-xs text-muted-foreground/60">
+                        Both addresses are recorded. You can proceed — the dashboard will show both.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <Button data-testid="button-wrong-wallet" variant="outline"
+                      onClick={() => setStep("select")}
+                      className="flex-1 border-white/10 text-muted-foreground text-sm">
+                      Wrong Wallet
+                    </Button>
+                    <Button data-testid="button-confirm-address"
+                      onClick={() => onSuccess(connectedAddress)}
+                      className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold border-0">
+                      <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                      Enter Dashboard
+                    </Button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
 

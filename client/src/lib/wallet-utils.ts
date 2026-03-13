@@ -14,12 +14,36 @@ export function isSolanaAddress(address: string): boolean {
   return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address) && !address.startsWith("0x");
 }
 
-export type AddressNetwork = "eth" | "solana" | "unknown";
+export type AddressNetwork = "eth" | "solana" | "tron" | "unknown";
+
+export function isTronAddress(address: string): boolean {
+  return /^T[a-zA-Z0-9]{33}$/.test(address.trim());
+}
 
 export function detectAddressNetwork(address: string): AddressNetwork {
-  if (isEVMAddress(address.trim())) return "eth";
-  if (isSolanaAddress(address.trim())) return "solana";
+  const a = address.trim();
+  if (isEVMAddress(a)) return "eth";
+  if (isTronAddress(a)) return "tron";
+  if (isSolanaAddress(a)) return "solana";
   return "unknown";
+}
+
+export function getNetworkLabel(network: AddressNetwork): string {
+  switch (network) {
+    case "eth": return "Ethereum / EVM";
+    case "solana": return "Solana";
+    case "tron": return "Tron";
+    default: return "Unknown chain";
+  }
+}
+
+export function getNetworkColor(network: AddressNetwork): string {
+  switch (network) {
+    case "eth": return "text-cyan-400";
+    case "solana": return "text-violet-400";
+    case "tron": return "text-red-400";
+    default: return "text-muted-foreground";
+  }
 }
 
 export function getChainInfo(address: string) {

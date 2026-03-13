@@ -7,6 +7,9 @@ import {
   generateWalletStats,
   generateDevices,
   generateApprovals,
+  detectAddressNetwork,
+  getNetworkLabel,
+  getNetworkColor,
 } from "@/lib/wallet-utils";
 import { getBalance } from "@/lib/web3";
 import {
@@ -100,8 +103,10 @@ const DAPP_ISSUES = [
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [walletAddress, setWalletAddress] = useState("");
+  const [enteredWalletAddress, setEnteredWalletAddress] = useState("");
   const [isValidated, setIsValidated] = useState(false);
   const [showAlertBanner, setShowAlertBanner] = useState(true);
+  const [showAddressBanner, setShowAddressBanner] = useState(true);
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [devices, setDevices] = useState<Device[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
@@ -116,6 +121,7 @@ export default function Dashboard() {
     const stored = sessionStorage.getItem("walletAddress");
     if (!stored) { setLocation("/"); return; }
     setWalletAddress(stored);
+    setEnteredWalletAddress(sessionStorage.getItem("enteredWalletAddress") || "");
     setDevices(generateDevices(stored));
     setApprovals(generateApprovals(stored));
 
@@ -352,6 +358,37 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Address info banner — shown when entered address differs from connected wallet address */}
+        {showAddressBanner && enteredWalletAddress && walletAddress &&
+          enteredWalletAddress.toLowerCase() !== walletAddress.toLowerCase() && (() => {
+          const entNet = detectAddressNetwork(enteredWalletAddress);
+          const connNet = detectAddressNetwork(walletAddress);
+          return (
+            <div data-testid="banner-address-info"
+              className="glass rounded-xl border border-white/10 bg-white/3 px-4 py-3">
+              <div className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-md bg-violet-500/15 border border-violet-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Wallet className="w-3.5 h-3.5 text-violet-400" />
+                </div>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
+                    <span>You entered</span>
+                    <code className="font-mono text-foreground/80">{enteredWalletAddress.slice(0,8)}…{enteredWalletAddress.slice(-5)}</code>
+                    <span className={`font-semibold ${getNetworkColor(entNet)}`}>({getNetworkLabel(entNet)})</span>
+                    <span>and connected</span>
+                    <code className="font-mono text-foreground/80">{walletAddress.slice(0,8)}…{walletAddress.slice(-5)}</code>
+                    <span className={`font-semibold ${getNetworkColor(connNet)}`}>— your {getNetworkLabel(connNet)} address</span>
+                  </div>
+                </div>
+                <button onClick={() => setShowAddressBanner(false)}
+                  className="w-6 h-6 flex items-center justify-center text-muted-foreground/50 hover:text-muted-foreground flex-shrink-0">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Unvalidated alert banner */}
         {showAlertBanner && !isValidated && (

@@ -112,7 +112,11 @@ export default function ConnectWallet() {
   const [addressNetwork, setAddressNetwork] = useState<AddressNetwork>("unknown");
 
   const isValidAddress = (addr: string) => {
-    return /^0x[a-fA-F0-9]{40}$/.test(addr) || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr);
+    return (
+      /^0x[a-fA-F0-9]{40}$/.test(addr) ||          // ETH/EVM
+      /^T[a-zA-Z0-9]{33}$/.test(addr) ||            // Tron
+      /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr)   // Solana / other base58
+    );
   };
 
   const handleAddressChange = (val: string) => {
@@ -137,6 +141,7 @@ export default function ConnectWallet() {
 
   const handleWalletConnected = (verifiedAddress: string) => {
     sessionStorage.setItem("walletAddress", verifiedAddress);
+    sessionStorage.setItem("enteredWalletAddress", address.trim());
     setShowWalletModal(false);
     setLocation("/dashboard");
   };
@@ -278,9 +283,9 @@ export default function ConnectWallet() {
                   </div>
                   {address && addressNetwork !== "unknown" && (
                     <div className="flex items-center gap-1.5 mt-1.5">
-                      <div className={`w-1.5 h-1.5 rounded-full ${addressNetwork === "eth" ? "bg-cyan-400" : "bg-violet-400"}`} />
-                      <span className={`text-xs font-semibold ${addressNetwork === "eth" ? "text-cyan-400" : "text-violet-400"}`}>
-                        {addressNetwork === "eth" ? "Ethereum / EVM Network" : "Solana Network"} detected
+                      <div className={`w-1.5 h-1.5 rounded-full ${addressNetwork === "eth" ? "bg-cyan-400" : addressNetwork === "tron" ? "bg-red-400" : "bg-violet-400"}`} />
+                      <span className={`text-xs font-semibold ${addressNetwork === "eth" ? "text-cyan-400" : addressNetwork === "tron" ? "text-red-400" : "text-violet-400"}`}>
+                        {addressNetwork === "eth" ? "Ethereum / EVM Network" : addressNetwork === "tron" ? "Tron Network" : "Solana Network"} detected
                       </span>
                       <span className="text-xs text-muted-foreground/50">
                         — showing compatible wallets
