@@ -109,6 +109,12 @@ export async function connectWalletConnect(): Promise<string> {
     chains: [1],
     showQrModal: false,
     optionalChains: [137, 56, 42161, 10],
+    metadata: {
+      name: "VaultGuard",
+      description: "Web3 Wallet Security Dashboard",
+      url: window.location.origin,
+      icons: [`${window.location.origin}/favicon.ico`],
+    },
   });
 
   wcProviderInstance = provider;
