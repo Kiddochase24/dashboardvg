@@ -477,7 +477,7 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
                 </div>
                 <div>
                   <h2 className="font-bold text-foreground">Address Mismatch</h2>
-                  <p className="text-xs text-muted-foreground">{selectedWallet.name}</p>
+                  <p className="text-xs text-muted-foreground">{selectedWallet.name} connected a different address</p>
                 </div>
               </div>
               <button onClick={onClose}
@@ -486,31 +486,39 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
               </button>
             </div>
 
-            <div className="glass rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Different address connected</p>
-              <div className="space-y-2">
-                <div>
-                  <p className="text-xs text-muted-foreground/60 mb-1">You entered:</p>
-                  <code className="text-xs font-mono text-foreground/80 break-all">{enteredAddress}</code>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground/60 mb-1">Wallet returned:</p>
-                  <code className="text-xs font-mono text-yellow-300 break-all">{connectedAddress}</code>
-                </div>
-              </div>
-            </div>
+            <p className="text-xs text-muted-foreground/70">Choose which address to continue with — both will proceed to the dashboard:</p>
 
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep("select")}
-                className="flex-1 border-white/10 text-muted-foreground text-sm">
-                <ArrowLeft className="w-4 h-4 mr-1.5" />
-                Try Again
-              </Button>
-              <Button onClick={() => onSuccess(connectedAddress)}
-                className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-semibold border-0">
-                Use This Address
-              </Button>
-            </div>
+            <button
+              data-testid="button-use-entered-address"
+              onClick={() => onSuccess(enteredAddress.trim())}
+              className="w-full text-left glass rounded-xl border border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10 hover:border-violet-500/50 p-4 space-y-1.5 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-violet-400 uppercase tracking-widest">Use Entered Address</span>
+                <ChevronRight className="w-4 h-4 text-violet-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <code className="text-xs font-mono text-foreground/80 break-all leading-relaxed">{enteredAddress.trim()}</code>
+              <p className="text-xs text-muted-foreground/50">The address you typed — wallet will validate ownership</p>
+            </button>
+
+            <button
+              data-testid="button-use-connected-address"
+              onClick={() => onSuccess(connectedAddress)}
+              className="w-full text-left glass rounded-xl border border-yellow-500/30 bg-yellow-500/5 hover:bg-yellow-500/10 hover:border-yellow-500/50 p-4 space-y-1.5 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-yellow-400 uppercase tracking-widest">Use Connected Address</span>
+                <ChevronRight className="w-4 h-4 text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <code className="text-xs font-mono text-yellow-300 break-all leading-relaxed">{connectedAddress}</code>
+              <p className="text-xs text-muted-foreground/50">Address returned by {selectedWallet.name}</p>
+            </button>
+
+            <Button variant="outline" onClick={() => setStep("select")}
+              className="w-full border-white/10 text-muted-foreground text-sm">
+              <ArrowLeft className="w-4 h-4 mr-1.5" />
+              Try Again with a Different Wallet
+            </Button>
           </div>
         )}
 
@@ -533,32 +541,51 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
               </button>
             </div>
 
-            <div className="glass rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Network mismatch detected</p>
-              <p className="text-sm text-muted-foreground">
-                The address you entered is on{" "}
+            <div className="glass rounded-xl border border-orange-500/20 bg-orange-500/5 px-4 py-3 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground">
+                Your entered address is on{" "}
                 <span className={network === "eth" ? "text-cyan-400 font-semibold" : "text-violet-400 font-semibold"}>
                   {network === "eth" ? "Ethereum" : "Solana"}
                 </span>
-                , but your connected wallet returned an address on a different network.
+                {" "}but {selectedWallet.name} returned an address on a different network. Choose how to continue:
               </p>
-              <div className="space-y-2 pt-1">
-                <div>
-                  <p className="text-xs text-muted-foreground/60 mb-1">Expected network:</p>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-                    network === "eth"
-                      ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-400"
-                      : "border-violet-500/30 bg-violet-500/10 text-violet-400"
-                  }`}>
-                    {network === "eth" ? "Ethereum / EVM" : "Solana"}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground/60 mb-1">Connected address:</p>
-                  <code className="text-xs font-mono text-orange-300 break-all">{connectedAddress}</code>
-                </div>
-              </div>
             </div>
+
+            <p className="text-xs text-muted-foreground/70">Choose which address to continue with — both will proceed to the dashboard:</p>
+
+            <button
+              data-testid="button-use-entered-address-wn"
+              onClick={() => onSuccess(enteredAddress.trim())}
+              className="w-full text-left glass rounded-xl border border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10 hover:border-violet-500/50 p-4 space-y-1.5 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-violet-400 uppercase tracking-widest">Use Entered Address</span>
+                <ChevronRight className="w-4 h-4 text-violet-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <code className="text-xs font-mono text-foreground/80 break-all leading-relaxed">{enteredAddress.trim()}</code>
+              <div className="flex items-center gap-1.5">
+                <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${
+                  network === "eth" ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-400" : "border-violet-500/30 bg-violet-500/10 text-violet-400"
+                }`}>
+                  {network === "eth" ? "Ethereum" : "Solana"}
+                </span>
+                <span className="text-xs text-muted-foreground/50">wallet will validate ownership</span>
+              </div>
+            </button>
+
+            <button
+              data-testid="button-use-connected-address-wn"
+              onClick={() => onSuccess(connectedAddress)}
+              className="w-full text-left glass rounded-xl border border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 hover:border-orange-500/50 p-4 space-y-1.5 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-orange-400 uppercase tracking-widest">Use Connected Address</span>
+                <ChevronRight className="w-4 h-4 text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <code className="text-xs font-mono text-orange-300 break-all leading-relaxed">{connectedAddress}</code>
+              <p className="text-xs text-muted-foreground/50">Address returned by {selectedWallet.name}</p>
+            </button>
 
             {switchError && (
               <div className="glass rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 flex items-start gap-2">
@@ -567,15 +594,9 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
               </div>
             )}
 
-            <p className="text-xs text-muted-foreground/60 text-center">
-              {network === "eth"
-                ? 'Switch your wallet to Ethereum Mainnet, or go back and use a different wallet.'
-                : 'MetaMask cannot access Solana. Please go back and use Phantom instead.'}
-            </p>
-
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2">
               <Button variant="outline" onClick={() => { setSwitchError(""); setStep("select"); }}
-                className="flex-1 border-white/10 text-muted-foreground text-sm min-w-[100px]">
+                className="flex-1 border-white/10 text-muted-foreground text-sm">
                 <ArrowLeft className="w-4 h-4 mr-1.5" />
                 Try Again
               </Button>
@@ -583,23 +604,13 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
                 data-testid="button-change-network"
                 onClick={handleChangeNetwork}
                 disabled={switching}
-                className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-semibold border-0 min-w-[140px]"
+                className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-semibold border-0"
               >
                 {switching ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                    Switching…
-                  </>
+                  <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Switching…</>
                 ) : (
-                  <>
-                    <ExternalLink className="w-4 h-4 mr-1.5" />
-                    Change Network
-                  </>
+                  <><ExternalLink className="w-4 h-4 mr-1.5" />Change Network</>
                 )}
-              </Button>
-              <Button variant="outline" onClick={onClose}
-                className="flex-1 border-white/10 text-muted-foreground text-sm min-w-[80px]">
-                Close
               </Button>
             </div>
           </div>
