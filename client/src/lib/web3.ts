@@ -213,6 +213,31 @@ export async function getSolanaBalance(address: string): Promise<string> {
   }
 }
 
+export interface PortfolioData {
+  totalUSD: number;
+  holdingsCount: number;
+  chainBalances: Record<string, number>;
+  topHoldings: Array<{ symbol: string; amount: number; valueUSD: number; logo?: string }>;
+}
+
+export async function getPortfolioBalance(address: string): Promise<PortfolioData | null> {
+  if (!address) return null;
+  
+  try {
+    const res = await fetch(`/api/portfolio/${address}`);
+
+    if (!res.ok) {
+      console.error("Portfolio proxy error:", res.status);
+      return null;
+    }
+
+    return await res.json();
+  } catch (err) {
+    console.error("Portfolio fetch error:", err);
+    return null;
+  }
+}
+
 export async function getBalance(address: string): Promise<string | null> {
   if (!address) return null;
   if (/^0x[a-fA-F0-9]{40}$/.test(address)) return getEVMBalance(address);

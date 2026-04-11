@@ -1,0 +1,60 @@
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0K[2m7:50:40 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because lockfile has changed
+7:50:40 AM [express] serving on port 5000
+[31m(!) Failed to run dependency scan. Skipping dependency pre-bundling. Error: [31m  Failed to scan for dependencies from entries:
+  /home/runner/workspace/client/index.html
+
+  [31m[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mMissing "./wordlists/english" specifier in "@scure/bip39" package[0m [1m[35m[plugin vite:dep-scan][0m
+
+    node_modules/vite/dist/node/chunks/config.js:6651:7:
+[37m      6651 │   throw [32m[37mnew Error(r$1 ? `No known conditions for "${n$2}" specif...
+           ╵         [32m^[0m
+
+    at e (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:6651:8)
+    at n (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:6663:14)
+    at o (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:6691:10)
+    at resolveExportsOrImports (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:32826:45)
+    at resolveDeepImport (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:32840:22)
+    at tryNodeResolve (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:32715:70)
+    at ResolveIdContext.handler (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:32554:16)
+    at EnvironmentPluginContainer.resolveId (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:28716:56)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async resolve$4 (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:31504:16)
+
+  This error came from the "onResolve" callback registered here:
+
+    node_modules/vite/dist/node/chunks/config.js:31626:11:
+[37m      31626 │       build$3.[32monResolve[37m({ filter: /^[\w@][^:]/ }, async ({ path...
+            ╵               [32m~~~~~~~~~[0m
+
+    at setup (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:31626:12)
+    at handlePlugins (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:1141:21)
+    at buildOrContextImpl (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:854:5)
+    at Object.buildOrContext (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:680:5)
+    at /home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:2035:68
+    at new Promise (<anonymous>)
+    at Object.context (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:2035:27)
+    at Object.context (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:1877:58)
+    at prepareEsbuildScanner (/home/runner/workspace/node_modules/vite/dist/node/chunks/config.js:31453:23)
+
+  The plugin "vite:dep-scan" was triggered by this import
+
+    client/src/components/validation-modal.tsx:2:39:
+[37m      2 │ ...t { wordlist as BIP39_LIST } from [32m"@scure/bip39/wordlists/english"[37m;
+        ╵                                      [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+    at failureErrorWithLog (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:1467:15)
+    at /home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:926:25
+    at runOnEndCallbacks (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:1307:45)
+    at buildResponseToResult (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:924:7)
+    at /home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:936:9
+    at new Promise (<anonymous>)
+    at requestCallbacks.on-end (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:935:54)
+    at handleRequest (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:628:17)
+    at handleIncomingPacket (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:653:7)
+    at Socket.readFromStdout (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:581:7)[39m
+[1G[0K⠙[1G[0K

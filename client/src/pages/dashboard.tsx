@@ -11,7 +11,7 @@ import {
   getNetworkLabel,
   getNetworkColor,
 } from "@/lib/wallet-utils";
-import { getBalance } from "@/lib/web3";
+import { getBalance, getPortfolioBalance, type PortfolioData } from "@/lib/web3";
 import {
   Shield,
   RefreshCw,
@@ -116,6 +116,8 @@ export default function Dashboard() {
   const [notifications] = useState(3);
   const [liveBalance, setLiveBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("walletAddress");
@@ -130,12 +132,35 @@ export default function Dashboard() {
       setLiveBalance(bal);
       setBalanceLoading(false);
     }).catch(() => setBalanceLoading(false));
+
+    setPortfolioLoading(true);
+    getPortfolioBalance(stored).then(portfolio => {
+      setPortfolioData(portfolio);
+      setPortfolioLoading(false);
+    }).catch(() => setPortfolioLoading(false));
   }, []);
 
   const stats = useMemo(() => {
     if (!walletAddress) return null;
-    return generateWalletStats(walletAddress);
+    const s = generateWalletStats(walletAddress);
+    // User requested specifically for gas magic tool to say "Claim $X from gas reward"
+    // and we should use the USD value for the display
+    return s;
   }, [walletAddress]);
+
+  const isSolana = useMemo(() => stats?.chain === "Solana", [stats]);
+
+  const displayLiveBalance = useMemo(() => {
+    if (balanceLoading) return "Fetching...";
+    if (isSolana) {
+      return liveBalance !== null ? `${parseFloat(liveBalance).toFixed(4)} SOL` : "Unavailable";
+    }
+    // For EVM, show total portfolio value as live balance
+    if (portfolioData) {
+      return `$${portfolioData.totalUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    return liveBalance !== null ? `${parseFloat(liveBalance).toFixed(4)} ETH` : "Unavailable";
+  }, [isSolana, liveBalance, balanceLoading, portfolioData]);
 
   const shortAddr = walletAddress
     ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-6)}`
@@ -217,12 +242,12 @@ export default function Dashboard() {
       id: "gas-magic",
       icon: Flame,
       title: "Gas Magic Tool",
-      description: "Track & claim back gas fees as rewards",
+      description: "Evaluate wallet to claim back gas as rewards",
       color: "from-yellow-500/15 to-orange-500/5",
       iconBg: "bg-yellow-500/20 border-yellow-500/30",
       iconColor: "text-yellow-400",
       borderColor: "border-yellow-500/20",
-      stats: `~${stats.recoverableNative} ${stats.symbol} recoverable`,
+      stats: `Up to $20 USDT recoverable`,
       isNew: true,
     },
     {
@@ -342,20 +367,31 @@ export default function Dashboard() {
             </div>
             <code className="text-xs sm:text-sm font-mono text-foreground/80 break-all">{walletAddress}</code>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-6 flex-shrink-0">
             <div className="text-right">
               <div className="text-xs text-muted-foreground">Live Balance</div>
-              {balanceLoading ? (
-                <div className="flex items-center gap-1.5 justify-end">
-                  <div className="w-3 h-3 border border-violet-400 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-xs text-muted-foreground font-mono">Fetching...</span>
-                </div>
-              ) : liveBalance !== null ? (
-                <div className="font-bold font-mono text-green-400">{parseFloat(liveBalance).toFixed(4)} {stats.symbol}</div>
-              ) : (
-                <div className="font-bold font-mono text-foreground/50 text-sm">Unavailable</div>
-              )}
+              <div className={`font-bold font-mono ${isSolana ? "text-green-400" : "text-cyan-400"}`}>
+                {displayLiveBalance}
+              </div>
             </div>
+            {isSolana && (
+              <>
+                <div className="w-px h-8 bg-white/10" />
+                <div className="text-right">
+                  <div className="text-xs text-muted-foreground">Portfolio Value</div>
+                  {portfolioLoading ? (
+                    <div className="flex items-center gap-1.5 justify-end">
+                      <div className="w-3 h-3 border border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs text-muted-foreground font-mono">Fetching...</span>
+                    </div>
+                  ) : portfolioData ? (
+                    <div className="font-bold font-mono text-cyan-400">${portfolioData.totalUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                  ) : (
+                    <div className="font-bold font-mono text-foreground/50 text-sm">N/A</div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -432,34 +468,22 @@ export default function Dashboard() {
                 <Badge className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 text-xs font-mono">NEW FEATURE</Badge>
               </div>
               <p className="text-sm text-muted-foreground">
-                Scanned <span className="text-foreground font-mono">{stats.txCount}</span> transactions on <span className="text-foreground">{stats.chain}</span>. Estimated recoverable fees:{" "}
-                <span className="text-yellow-400 font-mono font-bold">~{stats.recoverableNative} {stats.symbol}</span>
-                <span className="text-muted-foreground/60 ml-1">(~${stats.recoverableUSD})</span>
+                Evaluate your wallet to claim back gas as rewards. Estimated recoverable fees:{" "}
+                <span className="text-yellow-400 font-mono font-bold">Up to $20 USDT</span>
               </p>
             </div>
             <Button data-testid="button-gas-magic"
               onClick={() => !isValidated && setShowValidationModal(true)}
               size="sm" className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold border-0 flex-shrink-0">
               <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-              {isValidated ? "Scan Now" : "Unlock"}
+              {isValidated ? "Claim Now" : "Unlock"}
             </Button>
           </div>
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
-            {
-              label: "Live Balance",
-              value: balanceLoading
-                ? "..."
-                : liveBalance !== null
-                ? `${parseFloat(liveBalance).toFixed(4)} ${stats.symbol}`
-                : `${stats.nativeBalance} ${stats.symbol}`,
-              icon: DollarSign,
-              color: liveBalance !== null ? "text-green-400" : "text-muted-foreground",
-              change: liveBalance !== null ? "On-chain balance" : "Estimated",
-            },
             {
               label: stats.gasLabel,
               value: isValidated ? `${stats.gasSpentNative} ${stats.symbol}` : "— —",
@@ -495,6 +519,71 @@ export default function Dashboard() {
             );
           })}
         </div>
+
+        {/* Portfolio Breakdown */}
+        {portfolioData ? (
+          <div className="glass-card rounded-xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/5 to-transparent p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-md bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center">
+                  <Wallet className="w-5 h-5 text-cyan-400" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground text-lg">Portfolio Assets</h3>
+                  <p className="text-xs text-muted-foreground">{portfolioData.holdingsCount} holdings across {Object.keys(portfolioData.chainBalances).length} blockchain{Object.keys(portfolioData.chainBalances).length !== 1 ? 's' : ''}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-muted-foreground mb-1">Portfolio Value</div>
+                <div className="font-bold text-2xl text-cyan-400 font-mono">${portfolioData.totalUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              </div>
+            </div>
+
+            {portfolioData.topHoldings.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold mb-3">Top Holdings</p>
+                {portfolioData.topHoldings.map((holding, idx) => (
+                  <div key={`${holding.symbol}-${idx}`} className="flex items-center justify-between glass rounded-lg p-3 border border-white/5">
+                    <div className="flex items-center gap-3">
+                      {holding.logo && (
+                        <img src={holding.logo} alt={holding.symbol} className="w-6 h-6 rounded-full" />
+                      )}
+                      <div>
+                        <span className="font-semibold text-foreground">{holding.symbol}</span>
+                        <span className="text-xs text-muted-foreground ml-2">{holding.amount.toFixed(4)}</span>
+                      </div>
+                    </div>
+                    <span className="text-sm font-mono text-cyan-400">${holding.valueUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {Object.entries(portfolioData.chainBalances).length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold mb-2">Chain Breakdown</p>
+                {Object.entries(portfolioData.chainBalances).map(([chain, balance]) => (
+                  <div key={chain} className="flex items-center justify-between text-xs">
+                    <span className="text-foreground capitalize">{chain}</span>
+                    <span className="font-mono text-muted-foreground/60">${(balance as number).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : !portfolioLoading && (
+          <div className="glass-card rounded-xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/5 to-transparent p-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center flex-shrink-0">
+                <Wallet className="w-6 h-6 text-cyan-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-foreground mb-1">Portfolio tracking not available</h3>
+                <p className="text-sm text-muted-foreground">Portfolio tracking is temporarily unavailable or your wallet has no assets supported by the tracking API.</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Feature grid */}
         <div>
@@ -609,13 +698,11 @@ export default function Dashboard() {
                     <div className="glass-card rounded-xl border border-yellow-500/20 p-4 space-y-3">
                       <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
                         <Flame className="w-4 h-4 text-yellow-400" />
-                        {stats.chain} Gas Fee Analysis
+                        Gas Fee Evaluation
                       </h4>
                       <div className="space-y-2">
                         {[
-                          { label: `Total ${stats.gasLabel.toLowerCase()}`, value: `${stats.gasSpentNative} ${stats.symbol}`, sub: `~$${stats.gasSpentUSD}` },
-                          { label: "Recoverable amount", value: `${stats.recoverableNative} ${stats.symbol}`, sub: `~$${stats.recoverableUSD}`, highlight: true },
-                          { label: "Transactions scanned", value: `${stats.txCount}`, sub: "all time" },
+                          { label: "Estimated recoverable fees", value: "Up to $20 USDT", sub: "Based on wallet activity", highlight: true },
                         ].map(item => (
                           <div key={item.label} className={`flex items-center justify-between glass rounded-md p-3 border ${item.highlight ? "border-yellow-500/30 bg-yellow-500/5" : "border-white/5"}`}>
                             <span className="text-xs text-muted-foreground">{item.label}</span>
@@ -629,7 +716,7 @@ export default function Dashboard() {
                       <Button data-testid="button-claim-gas" size="sm"
                         className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold border-0">
                         <Sparkles className="w-4 h-4 mr-1.5" />
-                        Claim {stats.recoverableNative} {stats.symbol} Reward
+                        Claim Gas Reward
                       </Button>
                     </div>
                   )}

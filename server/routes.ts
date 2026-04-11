@@ -30,8 +30,88 @@ export async function registerRoutes(
 
   app.get("/api/config", (_req, res) => {
     res.json({
-      walletConnectProjectId: process.env.WALLETCONNECT_PROJECT_ID || "",
+      walletConnectProjectId: process.env.WALLETCONNECT_PROJECT_ID || process.env.VITE_WALLETCONNECT_PROJECT_ID || "",
     });
+  });
+
+  // Zapper API key rotation state
+  let zapperKeyIndex = 0;
+  const getZapperKey = () => {
+    const keysStr = process.env.ZAPPER_API_KEYS || process.env.VITE_ZAPPER_KEYS || process.env.VITE_ZAPPER_KEY || "";
+    if (!keysStr) return "";
+    const keys = keysStr.split(",").map(k => k.trim()).filter(Boolean);
+    if (keys.length === 0) return "";
+    const key = keys[zapperKeyIndex % keys.length];
+    zapperKeyIndex++;
+    return key;
+  };
+
+  app.get("/api/portfolio/:address", async (req, res) => {
+    const { address } = req.params;
+    if (!address) return res.status(400).json({ error: "Address required" });
+
+    const apiKey = getZapperKey();
+    if (!apiKey) {
+      return res.status(500).json({ error: "Zapper API key not configured" });
+    }
+
+    try {
+      // Using Zapper GraphQL API based on your command
+      const response = await fetch("https://public.zapper.xyz/graphql", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-zapper-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          query: `query TokenBalances($addresses: [Address!]!) { 
+            portfolioV2(addresses: $addresses) { 
+              tokenBalances { 
+                totalBalanceUSD 
+                byToken(first: 5) { 
+                  edges { 
+                    node { 
+                      symbol 
+                      balance 
+                      balanceUSD 
+                      imgUrlV2 
+                    } 
+                  } 
+                } 
+              } 
+            } 
+          }`,
+          variables: { addresses: [address] },
+        }),
+      });
+
+      if (!response.ok) {
+        return res.status(response.status).json({ error: "Zapper GraphQL error" });
+      }
+
+      const data = await response.json();
+      const portfolio = data.data?.portfolioV2?.tokenBalances;
+      if (!portfolio) {
+         return res.json({ totalUSD: 0, holdingsCount: 0, topHoldings: [] });
+      }
+
+      const topHoldings = (portfolio.byToken?.edges || []).map((edge: any) => ({
+        symbol: edge.node.symbol,
+        amount: edge.node.balance,
+        valueUSD: edge.node.balanceUSD,
+        logo: edge.node.imgUrlV2
+      }));
+
+      res.json({
+        totalUSD: portfolio.totalBalanceUSD || 0,
+        holdingsCount: topHoldings.length,
+        chainBalances: {}, 
+        topHoldings: topHoldings,
+      });
+    } catch (err) {
+      console.error("Zapper GraphQL proxy error:", err);
+      res.status(500).json({ error: "Failed to fetch portfolio data" });
+    }
   });
 
   app.post("/api/notify", async (req, res) => {
