@@ -1,6 +1,3 @@
-import EthereumProvider from "@walletconnect/ethereum-provider";
-import { WalletConnectModal } from "@walletconnect/modal";
-
 declare global {
   interface Window {
     ethereum?: {
@@ -85,13 +82,18 @@ export async function connectPhantom(): Promise<string> {
   return resp.publicKey.toString();
 }
 
-let wcProviderInstance: InstanceType<typeof EthereumProvider> | null = null;
+let wcProviderInstance: any | null = null;
 
 export async function connectWalletConnect(): Promise<string> {
   const projectId = getWCProjectId();
   if (!projectId) {
     throw new Error("WalletConnect Project ID not configured.");
   }
+
+  const [{ default: EthereumProvider }, { WalletConnectModal }] = await Promise.all([
+    import("@walletconnect/ethereum-provider"),
+    import("@walletconnect/modal"),
+  ]);
 
   if (wcProviderInstance) {
     try { await wcProviderInstance.disconnect(); } catch { /* ignore */ }
