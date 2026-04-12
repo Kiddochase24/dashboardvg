@@ -46,3 +46,7 @@ VITE_WALLETCONNECT_PROJECT_ID = "9a1d47bad3db7d80bfd12fa715bf0e0b"
 
 [agent]
 expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
