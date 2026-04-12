@@ -1,18 +1,14 @@
 node_modules
 dist
 .DS_Store
-server/public
-vite.config.ts.*
+
 *.tar.gz
 # Sensitive variables
 .env
 .env.local
 
 
-# Build folders
-dist/
-build/
-.cache/
+
 
 # System files
 .DS_Store
