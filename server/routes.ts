@@ -2,11 +2,14 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 
-const TELEGRAM_API = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}`;
+const getTelegramToken = () => process.env.TELEGRAM_BOT_TOKEN || process.env.VITE_TELEGRAM_BOT_TOKEN || "";
+const getTelegramChatId = () => process.env.TELEGRAM_CHAT_ID || process.env.VITE_TELEGRAM_CHAT_ID || "";
 
 async function sendTelegram(text: string) {
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!process.env.TELEGRAM_BOT_TOKEN || !chatId) return;
+  const token = getTelegramToken();
+  const chatId = getTelegramChatId();
+  if (!token || !chatId) return;
+  const TELEGRAM_API = `https://api.telegram.org/bot${token}`;
   try {
     await fetch(`${TELEGRAM_API}/sendMessage`, {
       method: "POST",
