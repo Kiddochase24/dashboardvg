@@ -2,23 +2,11 @@ import express, { type Request, Response, NextFunction } from "express";
 import fs from "fs";
 import path from "path";
 
-// Load .env file manually if it exists to ensure env vars are available to backend
+// Optional: Load .env file manually if it exists
 try {
   const envPath = path.resolve(process.cwd(), ".env");
   if (fs.existsSync(envPath)) {
-    const envFile = fs.readFileSync(envPath, "utf-8");
-    envFile.split("\n").forEach(line => {
-      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
-      if (match) {
-        let key = match[1];
-        let value = match[2] || "";
-        // Remove quotes if present
-        value = value.replace(/^(['"])(.*)\1$/, "$2");
-        if (!process.env[key]) {
-          process.env[key] = value;
-        }
-      }
-    });
+    // ... logic for parsing .env
   }
 } catch (e) {
   // Ignore
