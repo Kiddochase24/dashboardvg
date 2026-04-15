@@ -9,12 +9,15 @@ import {
   Shield,
   ArrowLeft,
   ExternalLink,
+  Smartphone,
 } from "lucide-react";
 import { SiEthereum } from "react-icons/si";
 import {
   connectWallet,
   hasEthereumProvider,
   hasPhantomProvider,
+  isMobile,
+  preInitWalletConnect,
   type WalletProvider,
 } from "@/lib/web3";
 import { notifyWalletConnected } from "@/lib/notify";
@@ -157,8 +160,10 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
   const [connectSeconds, setConnectSeconds] = useState(0);
   const connectIdRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onMobile = isMobile();
 
   useEffect(() => {
+    preInitWalletConnect();
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
@@ -339,6 +344,37 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
                 );
               })}
             </div>
+
+            {onMobile && network !== "solana" && (
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-white/5" />
+                  <div className="flex items-center gap-1.5">
+                    <Smartphone className="w-3 h-3 text-muted-foreground/40" />
+                    <span className="text-xs text-muted-foreground/40">Open directly in wallet app</span>
+                  </div>
+                  <div className="flex-1 h-px bg-white/5" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { name: "MetaMask", href: `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`, color: "border-orange-500/20 text-orange-400" },
+                    { name: "Trust Wallet", href: `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(window.location.href)}`, color: "border-cyan-500/20 text-cyan-400" },
+                    { name: "Rainbow", href: `https://rnbwapp.com/dapp?url=${encodeURIComponent(window.location.href)}`, color: "border-pink-500/20 text-pink-400" },
+                    { name: "Coinbase", href: `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(window.location.href)}`, color: "border-blue-500/20 text-blue-400" },
+                  ].map(({ name, href, color }) => (
+                    <a
+                      key={name}
+                      href={href}
+                      data-testid={`link-mobile-${name.toLowerCase().replace(/\s+/g, '-')}`}
+                      className={`glass rounded-lg border ${color} px-3 py-2 flex items-center justify-between gap-2 text-xs font-medium hover:bg-white/5 transition-colors`}
+                    >
+                      <span>{name}</span>
+                      <ExternalLink className="w-3 h-3 opacity-50 flex-shrink-0" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <p className="text-xs text-center text-muted-foreground/40">
               By connecting you agree to VaultGuard's terms of service

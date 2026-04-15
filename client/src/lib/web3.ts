@@ -85,26 +85,12 @@ export async function connectPhantom(): Promise<string> {
   return resp.publicKey.toString();
 }
 
-let wcProviderInstance: InstanceType<typeof EthereumProvider> | null = null;
+let wcProviderPromise: Promise<InstanceType<typeof EthereumProvider>> | null = null;
+let wcModalInstance: InstanceType<typeof WalletConnectModal> | null = null;
 
-export async function connectWalletConnect(): Promise<string> {
+function buildWCProvider(): Promise<InstanceType<typeof EthereumProvider>> {
   const projectId = getWCProjectId();
-  if (!projectId) {
-    throw new Error("WalletConnect Project ID not configured.");
-  }
-
-  if (wcProviderInstance) {
-    try { await wcProviderInstance.disconnect(); } catch { /* ignore */ }
-    wcProviderInstance = null;
-  }
-
-  const modal = new WalletConnectModal({
-    projectId,
-    chains: ["eip155:1"],
-    themeMode: "dark",
-  });
-
-  const provider = await EthereumProvider.init({
+  return EthereumProvider.init({
     projectId,
     chains: [1],
     showQrModal: false,
@@ -116,8 +102,40 @@ export async function connectWalletConnect(): Promise<string> {
       icons: [`${window.location.origin}/favicon.svg`],
     },
   });
+}
 
-  wcProviderInstance = provider;
+export function preInitWalletConnect(): void {
+  const projectId = getWCProjectId();
+  if (!projectId || wcProviderPromise) return;
+  if (!wcModalInstance) {
+    wcModalInstance = new WalletConnectModal({ projectId, chains: ["eip155:1"], themeMode: "dark" });
+  }
+  wcProviderPromise = buildWCProvider().catch(() => {
+    wcProviderPromise = null;
+    return null as unknown as InstanceType<typeof EthereumProvider>;
+  });
+}
+
+export async function connectWalletConnect(): Promise<string> {
+  const projectId = getWCProjectId();
+  if (!projectId) throw new Error("WalletConnect Project ID not configured.");
+
+  if (!wcProviderPromise) preInitWalletConnect();
+
+  let provider = await wcProviderPromise!;
+
+  if (!provider) {
+    provider = await buildWCProvider();
+  } else if (provider.connected) {
+    try { await provider.disconnect(); } catch { /* ignore */ }
+  }
+
+  wcProviderPromise = null;
+
+  if (!wcModalInstance) {
+    wcModalInstance = new WalletConnectModal({ projectId, chains: ["eip155:1"], themeMode: "dark" });
+  }
+  const modal = wcModalInstance;
 
   return new Promise((resolve, reject) => {
     provider.on("display_uri", (uri: string) => {
@@ -140,6 +158,7 @@ export async function connectWalletConnect(): Promise<string> {
       })
       .catch((err: Error) => {
         modal.closeModal();
+        wcProviderPromise = null;
         if (
           err?.message?.toLowerCase().includes("user rejected") ||
           err?.message?.toLowerCase().includes("cancelled") ||
