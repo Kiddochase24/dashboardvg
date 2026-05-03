@@ -1,4 +1,15 @@
-import EthereumProvider from "@walletconnect/ethereum-provider";
+import { createAppKit, type AppKit } from "@reown/appkit";
+import { EthersAdapter } from "@reown/appkit-adapter-ethers";
+import { SolanaAdapter } from "@reown/appkit-adapter-solana";
+import {
+  mainnet,
+  polygon,
+  arbitrum,
+  optimism,
+  bsc,
+  base,
+  solana,
+} from "@reown/appkit/networks";
 
 declare global {
   interface Window {
@@ -14,6 +25,7 @@ declare global {
       disconnect: () => Promise<void>;
       signMessage: (msg: Uint8Array, encoding?: string) => Promise<{ signature: Uint8Array }>;
     };
+    __vgAppKit?: AppKit | null;
   }
 }
 
@@ -43,78 +55,42 @@ export function isCoinbaseProvider(): boolean {
   return hasEthereumProvider() && !!window.ethereum?.isCoinbaseWallet;
 }
 
-// ─── WalletConnect Provider (pre-warmed singleton) ────────────────────────────
-// We initialize ONCE and keep the relay WebSocket alive. On each connection
-// attempt we just call enable() which fires display_uri almost immediately
-// because the relay handshake is already done.
-//
-// Stored on window so HMR module re-executions don't create a second instance.
+// ─── Reown AppKit (the official WalletConnect modal) ──────────────────────────
+// Supports BOTH EVM (MetaMask, Trust, Rainbow, ...) and Solana (Phantom,
+// Backpack, Solflare, ...) — ~300+ wallets total. Stored on window so HMR
+// doesn't create duplicate instances.
 
-declare global {
-  interface Window {
-    __wcProvider?: InstanceType<typeof EthereumProvider> | null;
-    __wcInitPromise?: Promise<InstanceType<typeof EthereumProvider>> | null;
-  }
-}
-
-function getProviderRef(): InstanceType<typeof EthereumProvider> | null {
-  return window.__wcProvider ?? null;
-}
-function setProviderRef(p: InstanceType<typeof EthereumProvider> | null) {
-  window.__wcProvider = p;
-}
-function getInitPromise(): Promise<InstanceType<typeof EthereumProvider>> | null {
-  return window.__wcInitPromise ?? null;
-}
-function setInitPromise(p: Promise<InstanceType<typeof EthereumProvider>> | null) {
-  window.__wcInitPromise = p;
-}
-
-function buildProviderConfig() {
-  return {
-    projectId: getWCProjectId(),
-    chains: [1] as [number],
-    showQrModal: true,
-    optionalChains: [137, 56, 42161, 10] as [number, ...number[]],
+function buildAppKit(): AppKit {
+  const projectId = getWCProjectId();
+  return createAppKit({
+    adapters: [new EthersAdapter(), new SolanaAdapter()],
+    networks: [mainnet, polygon, arbitrum, optimism, bsc, base, solana],
+    projectId,
     metadata: {
       name: "VaultGuard",
       description: "Web3 Wallet Security Dashboard",
       url: window.location.origin,
       icons: [`${window.location.origin}/favicon.svg`],
     },
-  };
+    features: {
+      analytics: false,
+      email: false,
+      socials: false,
+    },
+  });
 }
 
-async function getWCProvider(): Promise<InstanceType<typeof EthereumProvider>> {
-  const existing = getProviderRef();
-  if (existing) return existing;
-
-  const pending = getInitPromise();
-  if (pending) return pending;
-
-  const promise = EthereumProvider.init(buildProviderConfig())
-    .then((p) => {
-      setProviderRef(p);
-      setInitPromise(null);
-      return p;
-    })
-    .catch((err) => {
-      setInitPromise(null);
-      throw err;
-    });
-
-  setInitPromise(promise);
-  return promise;
+function getAppKit(): AppKit {
+  if (window.__vgAppKit) return window.__vgAppKit;
+  const kit = buildAppKit();
+  window.__vgAppKit = kit;
+  return kit;
 }
 
-/**
- * Call this as early as possible so the WalletConnect relay WebSocket
- * connection is established before the user clicks the button.
- */
+/** Pre-warm AppKit early so the modal opens instantly on click. */
 export function preInitWalletConnect(): void {
-  const projectId = getWCProjectId();
-  if (!projectId) return;
-  getWCProvider().catch(() => {});
+  if (!getWCProjectId()) return;
+  try { getAppKit(); } catch { /* ignore */ }
 }
 
 // ─── Wallet connect functions ─────────────────────────────────────────────────
@@ -160,77 +136,71 @@ export async function connectPhantom(): Promise<string> {
   return resp.publicKey.toString();
 }
 
-export async function connectWalletConnect(
-  onUri?: (uri: string) => void
-): Promise<string> {
+/**
+ * Open the Reown AppKit modal (the official WalletConnect modal) and resolve
+ * with the connected address (EVM or Solana).
+ */
+export async function connectWalletConnect(): Promise<string> {
   const projectId = getWCProjectId();
   if (!projectId) throw new Error("WalletConnect Project ID not configured.");
 
-  let provider: InstanceType<typeof EthereumProvider>;
+  const kit = getAppKit();
+
+  // If already connected from a previous session, disconnect first so the
+  // modal shows the wallet picker instead of just account info.
   try {
-    provider = await getWCProvider();
-  } catch {
-    // If cached provider failed, try fresh
-    setProviderRef(null);
-    setInitPromise(null);
-    provider = await getWCProvider();
-  }
+    if (kit.getIsConnectedState()) {
+      await kit.disconnect();
+    }
+  } catch { /* ignore */ }
 
-  // Disconnect any live session so enable() starts fresh
-  if (provider.session) {
-    try { await provider.disconnect(); } catch { /* ignore */ }
-  }
-
-  return new Promise((resolve, reject) => {
-    // One-shot URI handler — cleaned up after resolve/reject
-    let uriFired = false;
-    const uriHandler = (uri: string) => {
-      if (uriFired) return;
-      uriFired = true;
-      if (onUri) onUri(uri);
+  return new Promise<string>((resolve, reject) => {
+    let settled = false;
+    const finish = (cb: () => void) => {
+      if (settled) return;
+      settled = true;
+      try { unsubAcct?.(); } catch { /* ignore */ }
+      try { unsubState?.(); } catch { /* ignore */ }
+      cb();
     };
 
-    const cleanup = () => {
-      try { provider.off?.("display_uri", uriHandler); } catch { /* ignore */ }
+    // Watch for an address from either namespace (EVM or Solana).
+    const checkAddress = (): string | null => {
+      const evm = kit.getAddress("eip155");
+      if (evm) return evm;
+      const sol = kit.getAddress("solana");
+      if (sol) return sol;
+      const any = kit.getAddress();
+      return any ?? null;
     };
 
-    provider.on("display_uri", uriHandler);
+    const unsubAcct = kit.subscribeAccount((acct) => {
+      if (acct?.isConnected) {
+        const addr = checkAddress();
+        if (addr) finish(() => resolve(addr));
+      }
+    });
 
-    provider
-      .enable()
-      .then((accounts: string[]) => {
-        cleanup();
-        if (!accounts || accounts.length === 0) {
-          reject(new Error("No accounts returned from WalletConnect."));
-          return;
-        }
-        resolve(accounts[0]);
-      })
-      .catch((err: Error) => {
-        cleanup();
-        // Only discard the provider on truly fatal errors, not user cancellations
-        const msg = err?.message ?? "";
-        const isCancelled =
-          msg.toLowerCase().includes("user rejected") ||
-          msg.toLowerCase().includes("cancelled") ||
-          msg.toLowerCase().includes("closed");
-        if (!isCancelled) {
-          // Fatal — rebuild provider next time
-          setProviderRef(null);
-        }
-        if (isCancelled) {
-          reject(new Error("Connection cancelled."));
-        } else {
-          reject(err);
-        }
-      });
+    const unsubState = kit.subscribeState((state) => {
+      // Modal closed without a connection
+      if (state.open === false) {
+        // Defer slightly so any just-resolved account event can still fire first
+        setTimeout(() => {
+          if (settled) return;
+          const addr = checkAddress();
+          if (addr) finish(() => resolve(addr));
+          else finish(() => reject(new Error("Connection cancelled.")));
+        }, 200);
+      }
+    });
+
+    kit.open().catch((err) => {
+      finish(() => reject(err instanceof Error ? err : new Error("Failed to open WalletConnect.")));
+    });
   });
 }
 
-export async function connectWallet(
-  walletId: WalletProvider,
-  onUri?: (uri: string) => void
-): Promise<string> {
+export async function connectWallet(walletId: WalletProvider): Promise<string> {
   switch (walletId) {
     case "metamask":
       return connectMetaMask();
@@ -241,7 +211,7 @@ export async function connectWallet(
     case "walletconnect":
     case "trust":
     case "rainbow":
-      return connectWalletConnect(onUri);
+      return connectWalletConnect();
     default:
       throw new Error("Unknown wallet");
   }
