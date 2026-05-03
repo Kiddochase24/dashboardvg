@@ -153,6 +153,7 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
   const [connectedAddress, setConnectedAddress] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
+  const [wcUri, setWcUri] = useState<string | null>(null);
 
   const network = addressNetwork ?? detectAddressNetwork(enteredAddress);
   const [switching, setSwitching] = useState(false);
@@ -198,11 +199,15 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
     return true;
   });
 
+  const isWCWallet = (id: WalletProvider) =>
+    id === "walletconnect" || id === "trust" || id === "rainbow";
+
   const handleWalletSelect = async (wallet: WalletDef) => {
     const thisId = ++connectIdRef.current;
     setSelectedWallet(wallet);
     setErrorMsg("");
     setConnectSeconds(0);
+    setWcUri(null);
     setStep("connecting");
     setIsConnecting(true);
 
@@ -212,11 +217,15 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
     }, 1000);
 
     const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Connection timed out. Please check your wallet and try again.")), 45000)
+      setTimeout(() => reject(new Error("Connection timed out. Please check your wallet and try again.")), 60000)
     );
 
+    const onUri = isWCWallet(wallet.id)
+      ? (uri: string) => setWcUri(uri)
+      : undefined;
+
     try {
-      const addr = await Promise.race([connectWallet(wallet.id), timeout]);
+      const addr = await Promise.race([connectWallet(wallet.id, onUri), timeout]);
 
       if (timerRef.current) clearInterval(timerRef.current);
       if (connectIdRef.current !== thisId) return;
@@ -254,6 +263,7 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
     if (timerRef.current) clearInterval(timerRef.current);
     setIsConnecting(false);
     setConnectSeconds(0);
+    setWcUri(null);
     setStep("select");
   };
 
@@ -384,52 +394,72 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
 
         {/* CONNECTING */}
         {step === "connecting" && selectedWallet && (
-          <div className="p-8 flex flex-col items-center text-center space-y-6">
-            <div className="relative">
-              <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-                {selectedWallet.icon}
-              </div>
-              <div className="absolute inset-0 rounded-2xl border-2 border-violet-500/40 animate-ping" />
-              {isConnecting && (
-                <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-background border border-violet-500/40 flex items-center justify-center">
-                  <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />
+          <div className="p-6 flex flex-col items-center text-center space-y-5">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-md bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+                  {selectedWallet.icon}
                 </div>
+                <div className="text-left">
+                  <h2 className="text-sm font-bold text-foreground">
+                    {wcUri ? `Scan with ${selectedWallet.name}` : `Connecting to ${selectedWallet.name}`}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {wcUri ? "Open your wallet app and scan the QR code" : "Initialising secure connection…"}
+                  </p>
+                </div>
+              </div>
+              {isConnecting && !wcUri && (
+                <Loader2 className="w-4 h-4 text-violet-400 animate-spin flex-shrink-0" />
               )}
             </div>
 
-            <div>
-              <h2 className="text-lg font-bold text-foreground mb-1">
-                Connecting to {selectedWallet.name}
-              </h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Check your {selectedWallet.name} — a connection request is waiting for your approval
-              </p>
-            </div>
+            {/* QR code — shown as soon as URI is ready */}
+            {wcUri ? (
+              <div className="flex flex-col items-center gap-3 w-full">
+                <div className="rounded-2xl bg-white p-3 shadow-lg shadow-black/40">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(wcUri)}&margin=0`}
+                    alt="WalletConnect QR code"
+                    width={220}
+                    height={220}
+                    className="rounded-lg block"
+                  />
+                </div>
 
-            <div className="w-full glass rounded-md border border-white/5 px-4 py-3 text-left space-y-1.5">
-              <div className="flex items-center gap-2 text-xs text-violet-400">
-                <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
-                <span>Requesting connection from {selectedWallet.name}...</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground/50">
-                <div className="w-2 h-2 rounded-full bg-white/10" />
-                <span>Waiting for wallet approval</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground/30">
-                <div className="w-2 h-2 rounded-full bg-white/10" />
-                <span>Verifying address match</span>
-              </div>
-            </div>
+                <div className="flex items-center gap-2 text-xs text-green-400">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                  <span>QR ready — waiting for scan</span>
+                </div>
 
-            {connectSeconds >= 10 && (
-              <div className="glass rounded-md border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 text-xs text-yellow-400/80 text-center">
-                Taking longer than expected — check your wallet app for a pending approval prompt.
+                <div className="w-full glass rounded-md border border-white/5 px-3 py-2.5 text-left space-y-1">
+                  <p className="text-xs text-muted-foreground/60 leading-relaxed">
+                    Works with <span className="text-foreground/80 font-medium">Trust Wallet</span>, <span className="text-foreground/80 font-medium">Rainbow</span>, <span className="text-foreground/80 font-medium">MetaMask Mobile</span>, <span className="text-foreground/80 font-medium">Coinbase Wallet</span> and any WalletConnect-compatible app.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="w-full glass rounded-md border border-white/5 px-4 py-3 text-left space-y-1.5">
+                <div className="flex items-center gap-2 text-xs text-violet-400">
+                  <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
+                  <span>Generating secure session…</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground/40">
+                  <div className="w-2 h-2 rounded-full bg-white/10" />
+                  <span>QR code will appear momentarily</span>
+                </div>
               </div>
             )}
 
-            <div className="flex flex-col items-center gap-2">
+            {connectSeconds >= 20 && !wcUri && (
+              <div className="glass rounded-md border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 text-xs text-yellow-400/80 text-center">
+                Taking longer than expected — check your internet connection.
+              </div>
+            )}
+
+            <div className="flex flex-col items-center gap-1.5">
               {connectSeconds > 0 && (
-                <span className="text-xs text-muted-foreground/40">{connectSeconds}s elapsed · times out at 45s</span>
+                <span className="text-xs text-muted-foreground/40">{connectSeconds}s elapsed</span>
               )}
               <button
                 data-testid="button-cancel-connecting"
