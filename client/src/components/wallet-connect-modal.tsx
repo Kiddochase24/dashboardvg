@@ -11,7 +11,7 @@ import {
   ExternalLink,
   Smartphone,
 } from "lucide-react";
-import { SiEthereum } from "react-icons/si";
+
 import {
   connectWallet,
   hasEthereumProvider,
