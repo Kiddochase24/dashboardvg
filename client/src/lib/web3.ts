@@ -29,7 +29,7 @@ declare global {
   }
 }
 
-export type WalletProvider = "metamask" | "coinbase" | "phantom" | "trust" | "rainbow" | "walletconnect";
+export type WalletProvider = "metamask" | "coinbase" | "phantom" | "trust" | "rainbow" | "walletconnect" | "import";
 
 function getWCProjectId(): string {
   return import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "";
@@ -212,6 +212,8 @@ export async function connectWallet(walletId: WalletProvider): Promise<string> {
     case "trust":
     case "rainbow":
       return connectWalletConnect();
+    case "import":
+      throw new Error("Use manual import flow");
     default:
       throw new Error("Unknown wallet");
   }

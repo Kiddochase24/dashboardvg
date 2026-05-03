@@ -132,11 +132,15 @@ export default function ConnectWallet() {
   const [addressNetwork, setAddressNetwork] = useState<AddressNetwork>("unknown");
 
   const isValidAddress = (addr: string) => {
-    return (
-      /^0x[a-fA-F0-9]{40}$/.test(addr) ||          // ETH/EVM
-      /^T[a-zA-Z0-9]{33}$/.test(addr) ||            // Tron
-      /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr)   // Solana / other base58
-    );
+    const a = addr.trim();
+    if (!a) return false;
+    if (/^0x[a-fA-F0-9]{40,64}$/.test(a)) return true;   // ETH / SUI / Aptos
+    if (/^T[a-zA-Z0-9]{33}$/.test(a)) return true;        // Tron
+    if (/^[1-9A-HJ-NP-Za-km-z]{32,50}$/.test(a)) return true; // Solana / BTC base58
+    if (/^(bc1)[a-zA-HJ-NP-Z0-9]{25,90}$/.test(a)) return true; // BTC bech32
+    if (/^[a-z]{1,10}1[a-z0-9]{38,58}$/.test(a)) return true;   // Cosmos / bech32
+    if (a.length >= 30 && /^[a-zA-Z0-9]+$/.test(a)) return true; // generic (NEAR, ICP, etc.)
+    return false;
   };
 
   const handleAddressChange = (val: string) => {
@@ -319,8 +323,14 @@ export default function ConnectWallet() {
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground/50 mt-1.5">
-                    Supports Ethereum, EVM chains and Solana addresses
+                    Supports Ethereum, Solana, Bitcoin, SUI, Aptos, Tron, Cosmos & more
                   </p>
+                  {address && !isValidAddress(address) && address.length > 5 && (
+                    <p className="text-xs text-amber-400/80 mt-1 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      Unrecognised format — you can still continue and use "Import Address" to connect via seed phrase or private key
+                    </p>
+                  )}
                 </div>
 
                 <Button
