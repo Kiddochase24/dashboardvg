@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   X,
@@ -10,7 +10,16 @@ import {
   ArrowLeft,
   ExternalLink,
   Smartphone,
+  Search,
 } from "lucide-react";
+
+interface WCExplorerWallet {
+  id: string;
+  name: string;
+  image_id: string;
+  mobile: { native: string; universal: string };
+  desktop: { native: string; universal: string };
+}
 
 import {
   connectWallet,
@@ -154,6 +163,9 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
   const [errorMsg, setErrorMsg] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
   const [wcUri, setWcUri] = useState<string | null>(null);
+  const [wcWallets, setWcWallets] = useState<WCExplorerWallet[]>([]);
+  const [wcWalletsLoading, setWcWalletsLoading] = useState(false);
+  const [wcSearch, setWcSearch] = useState("");
 
   const network = addressNetwork ?? detectAddressNetwork(enteredAddress);
   const [switching, setSwitching] = useState(false);
@@ -165,6 +177,16 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
 
   useEffect(() => {
     preInitWalletConnect();
+    // Pre-fetch wallet list from WalletConnect explorer
+    const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "";
+    if (projectId) {
+      setWcWalletsLoading(true);
+      fetch(`https://explorer-api.walletconnect.com/v3/wallets?projectId=${projectId}&entries=250&page=1`)
+        .then((r) => r.json())
+        .then((data) => { if (Array.isArray(data.data)) setWcWallets(data.data); })
+        .catch(() => {})
+        .finally(() => setWcWalletsLoading(false));
+    }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
@@ -395,113 +417,22 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
         {/* CONNECTING */}
         {step === "connecting" && selectedWallet && (() => {
           const isWC = isWCWallet(selectedWallet.id);
+          const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "";
 
-          const WC_WALLETS = [
-            {
-              name: "MetaMask",
-              color: "#E17726",
-              icon: (
-                <svg viewBox="0 0 35 33" className="w-5 h-5">
-                  <path d="M32.9582 1L19.3228 11.1L21.7973 4.1z" fill="#E17726"/>
-                  <path d="M2.0418 1L15.5574 11.194L13.2027 4.1z" fill="#E27625"/>
-                  <path d="M28.2663 23.531L24.5371 29.404L32.2139 31.567L34.4579 23.681z" fill="#E27625"/>
-                  <path d="M0.5563 23.681L2.786 31.567L10.4628 29.404L6.7336 23.531z" fill="#E27625"/>
-                  <path d="M10.0637 14.464L7.8467 17.881L15.4493 18.226L15.1952 9.908z" fill="#E27625"/>
-                  <path d="M24.9363 14.464L19.7291 9.805L19.5507 18.226L27.1533 17.881z" fill="#E27625"/>
-                  <path d="M10.4628 29.404L14.9458 27.129L11.0665 23.736z" fill="#E27625"/>
-                  <path d="M20.0542 27.129L24.5371 29.404L23.9335 23.736z" fill="#E27625"/>
-                </svg>
-              ),
-              href: (uri: string) => `https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`,
-            },
-            {
-              name: "Trust Wallet",
-              color: "#3375BB",
-              icon: (
-                <svg viewBox="0 0 512 512" className="w-5 h-5">
-                  <path d="M256 0L48 96v160c0 138.8 88 268.8 208 320 120-51.2 208-181.2 208-320V96L256 0z" fill="#3375BB"/>
-                  <path d="M208 320l-80-80 28.8-28.8L208 262.4l147.2-147.2L384 144 208 320z" fill="white"/>
-                </svg>
-              ),
-              href: (uri: string) => `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`,
-            },
-            {
-              name: "Rainbow",
-              color: "#FF6B35",
-              icon: (
-                <svg viewBox="0 0 120 120" className="w-5 h-5">
-                  <defs>
-                    <radialGradient id="rg3" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#FFD700"/>
-                      <stop offset="30%" stopColor="#FF6B35"/>
-                      <stop offset="60%" stopColor="#C71585"/>
-                      <stop offset="100%" stopColor="#4B0082"/>
-                    </radialGradient>
-                  </defs>
-                  <circle cx="60" cy="60" r="60" fill="url(#rg3)"/>
-                  <path d="M20 60 Q60 20 100 60" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round"/>
-                  <path d="M28 68 Q60 32 92 68" stroke="white" strokeWidth="6" fill="none" strokeLinecap="round" opacity="0.8"/>
-                </svg>
-              ),
-              href: (uri: string) => `https://rnbwapp.com/wc?uri=${encodeURIComponent(uri)}`,
-            },
-            {
-              name: "Coinbase",
-              color: "#0052FF",
-              icon: (
-                <svg viewBox="0 0 1024 1024" className="w-5 h-5">
-                  <rect width="1024" height="1024" rx="200" fill="#0052FF"/>
-                  <path d="M512 128C300.8 128 128 300.8 128 512s172.8 384 384 384 384-172.8 384-384S723.2 128 512 128zm0 614.4c-127.2 0-230.4-103.2-230.4-230.4S384.8 281.6 512 281.6s230.4 103.2 230.4 230.4S639.2 742.4 512 742.4z" fill="white"/>
-                </svg>
-              ),
-              href: (uri: string) => `https://go.cb-w.com/wc?uri=${encodeURIComponent(uri)}`,
-            },
-            {
-              name: "Argent",
-              color: "#FF875B",
-              icon: (
-                <svg viewBox="0 0 40 40" className="w-5 h-5">
-                  <rect width="40" height="40" rx="10" fill="#FF875B"/>
-                  <path d="M20 8l10 18H10z" fill="white"/>
-                </svg>
-              ),
-              href: (uri: string) => `https://argent.link/app/wc?uri=${encodeURIComponent(uri)}`,
-            },
-            {
-              name: "Ledger Live",
-              color: "#000000",
-              icon: (
-                <svg viewBox="0 0 40 40" className="w-5 h-5">
-                  <rect width="40" height="40" rx="10" fill="#142533"/>
-                  <path d="M8 8h10v3H11v10H8zm14 21h10v3H22zm10-13h3v13h-3zM8 22h3v10H8z" fill="white"/>
-                </svg>
-              ),
-              href: (uri: string) => `https://ledger.com/wc?uri=${encodeURIComponent(uri)}`,
-            },
-            {
-              name: "1inch",
-              color: "#1B314F",
-              icon: (
-                <svg viewBox="0 0 40 40" className="w-5 h-5">
-                  <rect width="40" height="40" rx="10" fill="#1B314F"/>
-                  <path d="M20 6c-7.7 0-14 6.3-14 14s6.3 14 14 14 14-6.3 14-14S27.7 6 20 6zm-2 20v-8l-4 4-1.4-1.4L20 13l7.4 7.6L26 22l-4-4v8h-4z" fill="white"/>
-                </svg>
-              ),
-              href: (uri: string) => `https://wallet.1inch.io/wc?uri=${encodeURIComponent(uri)}`,
-            },
-            {
-              name: "Safe",
-              color: "#12FF80",
-              icon: (
-                <svg viewBox="0 0 40 40" className="w-5 h-5">
-                  <rect width="40" height="40" rx="10" fill="#1C1C1C"/>
-                  <path d="M20 8l10 6v12l-10 6-10-6V14z" fill="none" stroke="#12FF80" strokeWidth="2"/>
-                  <circle cx="20" cy="20" r="4" fill="#12FF80"/>
-                </svg>
-              ),
-              href: (uri: string) => `https://app.safe.global/wc?uri=${encodeURIComponent(uri)}`,
-            },
-          ];
+          const filteredWallets = wcWallets.filter((w) =>
+            w.name.toLowerCase().includes(wcSearch.toLowerCase())
+          );
+
+          function buildWalletLink(wallet: WCExplorerWallet, uri: string): string {
+            const encoded = encodeURIComponent(uri);
+            if (wallet.mobile?.universal) return `${wallet.mobile.universal}/wc?uri=${encoded}`;
+            if (wallet.mobile?.native) return `${wallet.mobile.native}wc?uri=${encoded}`;
+            return `#`;
+          }
+
+          function walletImageUrl(wallet: WCExplorerWallet): string {
+            return `https://explorer-api.walletconnect.com/v3/logo/sm/${wallet.image_id}?projectId=${projectId}`;
+          }
 
           if (isWC && wcUri) {
             return (
@@ -519,7 +450,7 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
                   </div>
                   <div className="text-center">
                     <p className="text-xs font-semibold text-foreground">Scan QR Code</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">with any wallet app</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">works with any wallet app</p>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-green-400">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"/>
@@ -528,44 +459,81 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
                 </div>
 
                 {/* Right — Wallet list */}
-                <div className="flex-1 flex flex-col p-4 gap-1 min-w-0">
-                  <div className="flex items-center justify-between mb-2">
+                <div className="flex-1 flex flex-col p-4 min-w-0 gap-2">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-sm font-bold text-foreground">Choose a wallet</h2>
-                      <p className="text-xs text-muted-foreground">Or open your app &amp; scan the QR</p>
+                      <h2 className="text-sm font-bold text-foreground">
+                        Choose a wallet
+                        {wcWallets.length > 0 && (
+                          <span className="ml-1.5 text-xs font-normal text-muted-foreground/60">
+                            ({wcWallets.length})
+                          </span>
+                        )}
+                      </h2>
+                      <p className="text-xs text-muted-foreground">Or scan the QR with your wallet app</p>
                     </div>
                     <button
                       data-testid="button-close-wc-modal"
                       onClick={handleCancelConnect}
-                      className="w-7 h-7 glass rounded-md border border-white/10 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                      className="w-7 h-7 glass rounded-md border border-white/10 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
                     >
                       <X className="w-3.5 h-3.5"/>
                     </button>
                   </div>
 
-                  <div className="space-y-1 overflow-y-auto max-h-72 pr-0.5">
-                    {WC_WALLETS.map((w) => (
-                      <a
-                        key={w.name}
-                        href={w.href(wcUri)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        data-testid={`link-wc-wallet-${w.name.toLowerCase().replace(/\s+/g, '-')}`}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl glass border border-white/6 hover:border-white/15 hover:bg-white/5 transition-all group cursor-pointer"
-                      >
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/10">
-                          {w.icon}
-                        </div>
-                        <span className="text-sm font-medium text-foreground flex-1">{w.name}</span>
-                        <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors flex-shrink-0"/>
-                      </a>
-                    ))}
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50"/>
+                    <input
+                      data-testid="input-wc-search"
+                      type="text"
+                      placeholder="Search wallets…"
+                      value={wcSearch}
+                      onChange={(e) => setWcSearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 text-xs bg-white/5 border border-white/10 rounded-lg text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-violet-500/40"
+                    />
+                  </div>
+
+                  {/* Wallet list */}
+                  <div className="overflow-y-auto max-h-64 space-y-1 pr-0.5">
+                    {wcWalletsLoading && wcWallets.length === 0 ? (
+                      <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground/50 text-xs">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin"/>
+                        Loading wallets…
+                      </div>
+                    ) : filteredWallets.length === 0 ? (
+                      <div className="text-center py-6 text-xs text-muted-foreground/50">
+                        No wallets match "{wcSearch}"
+                      </div>
+                    ) : (
+                      filteredWallets.map((w) => (
+                        <a
+                          key={w.id}
+                          href={buildWalletLink(w, wcUri)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          data-testid={`link-wc-wallet-${w.id}`}
+                          className="flex items-center gap-3 px-3 py-2 rounded-xl glass border border-white/6 hover:border-white/15 hover:bg-white/5 transition-all group cursor-pointer"
+                        >
+                          <img
+                            src={walletImageUrl(w)}
+                            alt={w.name}
+                            width={32}
+                            height={32}
+                            className="w-8 h-8 rounded-lg flex-shrink-0 bg-white/10"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                          />
+                          <span className="text-sm font-medium text-foreground flex-1 truncate">{w.name}</span>
+                          <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors flex-shrink-0"/>
+                        </a>
+                      ))
+                    )}
                   </div>
 
                   <button
                     data-testid="button-cancel-connecting"
                     onClick={handleCancelConnect}
-                    className="mt-2 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center gap-1 justify-center"
+                    className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center gap-1 justify-center pt-1"
                   >
                     <ArrowLeft className="w-3 h-3"/> Back to wallet list
                   </button>
