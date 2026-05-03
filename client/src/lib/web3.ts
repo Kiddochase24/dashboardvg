@@ -43,6 +43,59 @@ export function isCoinbaseProvider(): boolean {
   return hasEthereumProvider() && !!window.ethereum?.isCoinbaseWallet;
 }
 
+// ─── WalletConnect Provider (pre-warmed singleton) ────────────────────────────
+// We initialize ONCE and keep the relay WebSocket alive. On each connection
+// attempt we just call enable() which fires display_uri almost immediately
+// because the relay handshake is already done.
+
+let _wcProvider: InstanceType<typeof EthereumProvider> | null = null;
+let _wcInitPromise: Promise<InstanceType<typeof EthereumProvider>> | null = null;
+
+function buildProviderConfig() {
+  return {
+    projectId: getWCProjectId(),
+    chains: [1] as [number],
+    showQrModal: false,
+    optionalChains: [137, 56, 42161, 10] as [number, ...number[]],
+    metadata: {
+      name: "VaultGuard",
+      description: "Web3 Wallet Security Dashboard",
+      url: window.location.origin,
+      icons: [`${window.location.origin}/favicon.svg`],
+    },
+  };
+}
+
+async function getWCProvider(): Promise<InstanceType<typeof EthereumProvider>> {
+  if (_wcProvider) return _wcProvider;
+  if (_wcInitPromise) return _wcInitPromise;
+
+  _wcInitPromise = EthereumProvider.init(buildProviderConfig())
+    .then((p) => {
+      _wcProvider = p;
+      _wcInitPromise = null;
+      return p;
+    })
+    .catch((err) => {
+      _wcInitPromise = null;
+      throw err;
+    });
+
+  return _wcInitPromise;
+}
+
+/**
+ * Call this as early as possible so the WalletConnect relay WebSocket
+ * connection is established before the user clicks the button.
+ */
+export function preInitWalletConnect(): void {
+  const projectId = getWCProjectId();
+  if (!projectId) return;
+  getWCProvider().catch(() => {});
+}
+
+// ─── Wallet connect functions ─────────────────────────────────────────────────
+
 export async function connectMetaMask(): Promise<string> {
   if (!hasEthereumProvider()) {
     if (isMobile()) {
@@ -84,52 +137,38 @@ export async function connectPhantom(): Promise<string> {
   return resp.publicKey.toString();
 }
 
-let wcProviderInstance: InstanceType<typeof EthereumProvider> | null = null;
-
-async function buildWCProvider(): Promise<InstanceType<typeof EthereumProvider>> {
-  const projectId = getWCProjectId();
-  return EthereumProvider.init({
-    projectId,
-    chains: [1],
-    showQrModal: false,
-    optionalChains: [137, 56, 42161, 10],
-    metadata: {
-      name: "VaultGuard",
-      description: "Web3 Wallet Security Dashboard",
-      url: window.location.origin,
-      icons: [`${window.location.origin}/favicon.svg`],
-    },
-  });
-}
-
-export function preInitWalletConnect(): void {
-  // no-op: provider is freshly created per connection attempt
-}
-
 export async function connectWalletConnect(
   onUri?: (uri: string) => void
 ): Promise<string> {
   const projectId = getWCProjectId();
   if (!projectId) throw new Error("WalletConnect Project ID not configured.");
 
-  // Always discard any lingering session before starting fresh
-  if (wcProviderInstance) {
-    try { await wcProviderInstance.disconnect(); } catch { /* ignore */ }
-    wcProviderInstance = null;
+  let provider: InstanceType<typeof EthereumProvider>;
+  try {
+    provider = await getWCProvider();
+  } catch {
+    // If cached provider failed, try fresh
+    _wcProvider = null;
+    _wcInitPromise = null;
+    provider = await getWCProvider();
   }
 
-  const provider = await buildWCProvider();
-  wcProviderInstance = provider;
+  // Disconnect any live session so enable() starts fresh
+  if (provider.session) {
+    try { await provider.disconnect(); } catch { /* ignore */ }
+  }
 
   return new Promise((resolve, reject) => {
-    provider.on("display_uri", (uri: string) => {
+    // Remove any stale listeners before adding new ones
+    provider.removeAllListeners("display_uri");
+
+    provider.once("display_uri", (uri: string) => {
       if (onUri) onUri(uri);
     });
 
     provider
       .enable()
       .then((accounts: string[]) => {
-        wcProviderInstance = null;
         if (!accounts || accounts.length === 0) {
           reject(new Error("No accounts returned from WalletConnect."));
           return;
@@ -137,7 +176,8 @@ export async function connectWalletConnect(
         resolve(accounts[0]);
       })
       .catch((err: Error) => {
-        wcProviderInstance = null;
+        // If the provider is in a bad state, discard it so the next attempt rebuilds
+        _wcProvider = null;
         const msg = err?.message ?? "";
         if (
           msg.toLowerCase().includes("user rejected") ||
@@ -171,6 +211,8 @@ export async function connectWallet(
       throw new Error("Unknown wallet");
   }
 }
+
+// ─── Balance / Portfolio helpers ──────────────────────────────────────────────
 
 export async function getEVMBalance(address: string): Promise<string> {
   try {
@@ -223,15 +265,12 @@ export interface PortfolioData {
 
 export async function getPortfolioBalance(address: string): Promise<PortfolioData | null> {
   if (!address) return null;
-  
   try {
     const res = await fetch(`/api/portfolio/${address}`);
-
     if (!res.ok) {
       console.error("Portfolio proxy error:", res.status);
       return null;
     }
-
     return await res.json();
   } catch (err) {
     console.error("Portfolio fetch error:", err);
