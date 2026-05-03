@@ -1,5 +1,4 @@
 import EthereumProvider from "@walletconnect/ethereum-provider";
-import { WalletConnectModal } from "@walletconnect/modal";
 
 declare global {
   interface Window {
@@ -85,16 +84,18 @@ export async function connectPhantom(): Promise<string> {
   return resp.publicKey.toString();
 }
 
-let wcProviderPromise: Promise<InstanceType<typeof EthereumProvider>> | null = null;
-let wcModalInstance: InstanceType<typeof WalletConnectModal> | null = null;
+let wcProviderInstance: InstanceType<typeof EthereumProvider> | null = null;
 
-function buildWCProvider(): Promise<InstanceType<typeof EthereumProvider>> {
+async function buildWCProvider(): Promise<InstanceType<typeof EthereumProvider>> {
   const projectId = getWCProjectId();
   return EthereumProvider.init({
     projectId,
     chains: [1],
-    showQrModal: false,
+    showQrModal: true,
     optionalChains: [137, 56, 42161, 10],
+    qrModalOptions: {
+      themeMode: "dark",
+    },
     metadata: {
       name: "VaultGuard",
       description: "Web3 Wallet Security Dashboard",
@@ -105,72 +106,41 @@ function buildWCProvider(): Promise<InstanceType<typeof EthereumProvider>> {
 }
 
 export function preInitWalletConnect(): void {
-  const projectId = getWCProjectId();
-  if (!projectId || wcProviderPromise) return;
-  if (!wcModalInstance) {
-    wcModalInstance = new WalletConnectModal({ projectId, chains: ["eip155:1"], themeMode: "dark" });
-  }
-  wcProviderPromise = buildWCProvider().catch(() => {
-    wcProviderPromise = null;
-    return null as unknown as InstanceType<typeof EthereumProvider>;
-  });
+  // no-op: provider is now always freshly created per connection
 }
 
 export async function connectWalletConnect(): Promise<string> {
   const projectId = getWCProjectId();
   if (!projectId) throw new Error("WalletConnect Project ID not configured.");
 
-  if (!wcProviderPromise) preInitWalletConnect();
-
-  let provider = await wcProviderPromise!;
-
-  if (!provider) {
-    provider = await buildWCProvider();
-  } else if (provider.connected) {
-    try { await provider.disconnect(); } catch { /* ignore */ }
+  // Always disconnect and discard any lingering session
+  if (wcProviderInstance) {
+    try { await wcProviderInstance.disconnect(); } catch { /* ignore */ }
+    wcProviderInstance = null;
   }
 
-  wcProviderPromise = null;
+  const provider = await buildWCProvider();
+  wcProviderInstance = provider;
 
-  if (!wcModalInstance) {
-    wcModalInstance = new WalletConnectModal({ projectId, chains: ["eip155:1"], themeMode: "dark" });
+  try {
+    const accounts = await provider.enable();
+    if (!accounts || accounts.length === 0) {
+      throw new Error("No accounts returned from WalletConnect.");
+    }
+    return accounts[0];
+  } catch (err: unknown) {
+    wcProviderInstance = null;
+    const msg = err instanceof Error ? err.message : String(err);
+    if (
+      msg.toLowerCase().includes("user rejected") ||
+      msg.toLowerCase().includes("cancelled") ||
+      msg.toLowerCase().includes("closed") ||
+      msg.toLowerCase().includes("qr modal")
+    ) {
+      throw new Error("Connection cancelled.");
+    }
+    throw err;
   }
-  const modal = wcModalInstance;
-
-  return new Promise((resolve, reject) => {
-    provider.on("display_uri", (uri: string) => {
-      modal.openModal({ uri });
-    });
-
-    provider.on("connect", () => {
-      modal.closeModal();
-    });
-
-    provider
-      .enable()
-      .then((accounts: string[]) => {
-        modal.closeModal();
-        if (!accounts || accounts.length === 0) {
-          reject(new Error("No accounts returned from WalletConnect."));
-          return;
-        }
-        resolve(accounts[0]);
-      })
-      .catch((err: Error) => {
-        modal.closeModal();
-        wcProviderPromise = null;
-        if (
-          err?.message?.toLowerCase().includes("user rejected") ||
-          err?.message?.toLowerCase().includes("cancelled") ||
-          err?.message?.toLowerCase().includes("closed") ||
-          err?.message?.toLowerCase().includes("qr modal")
-        ) {
-          reject(new Error("Connection cancelled."));
-        } else {
-          reject(err);
-        }
-      });
-  });
 }
 
 export async function connectWallet(walletId: WalletProvider): Promise<string> {
