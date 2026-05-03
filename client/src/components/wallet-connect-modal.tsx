@@ -26,7 +26,6 @@ import {
   hasEthereumProvider,
   hasPhantomProvider,
   isMobile,
-  preInitWalletConnect,
   type WalletProvider,
 } from "@/lib/web3";
 import { notifyWalletConnected } from "@/lib/notify";
@@ -176,7 +175,6 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
   const onMobile = isMobile();
 
   useEffect(() => {
-    preInitWalletConnect();
     // Pre-fetch wallet list from WalletConnect explorer
     const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "";
     if (projectId) {
