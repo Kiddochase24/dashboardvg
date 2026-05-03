@@ -47,9 +47,28 @@ export function isCoinbaseProvider(): boolean {
 // We initialize ONCE and keep the relay WebSocket alive. On each connection
 // attempt we just call enable() which fires display_uri almost immediately
 // because the relay handshake is already done.
+//
+// Stored on window so HMR module re-executions don't create a second instance.
 
-let _wcProvider: InstanceType<typeof EthereumProvider> | null = null;
-let _wcInitPromise: Promise<InstanceType<typeof EthereumProvider>> | null = null;
+declare global {
+  interface Window {
+    __wcProvider?: InstanceType<typeof EthereumProvider> | null;
+    __wcInitPromise?: Promise<InstanceType<typeof EthereumProvider>> | null;
+  }
+}
+
+function getProviderRef(): InstanceType<typeof EthereumProvider> | null {
+  return window.__wcProvider ?? null;
+}
+function setProviderRef(p: InstanceType<typeof EthereumProvider> | null) {
+  window.__wcProvider = p;
+}
+function getInitPromise(): Promise<InstanceType<typeof EthereumProvider>> | null {
+  return window.__wcInitPromise ?? null;
+}
+function setInitPromise(p: Promise<InstanceType<typeof EthereumProvider>> | null) {
+  window.__wcInitPromise = p;
+}
 
 function buildProviderConfig() {
   return {
@@ -67,21 +86,25 @@ function buildProviderConfig() {
 }
 
 async function getWCProvider(): Promise<InstanceType<typeof EthereumProvider>> {
-  if (_wcProvider) return _wcProvider;
-  if (_wcInitPromise) return _wcInitPromise;
+  const existing = getProviderRef();
+  if (existing) return existing;
 
-  _wcInitPromise = EthereumProvider.init(buildProviderConfig())
+  const pending = getInitPromise();
+  if (pending) return pending;
+
+  const promise = EthereumProvider.init(buildProviderConfig())
     .then((p) => {
-      _wcProvider = p;
-      _wcInitPromise = null;
+      setProviderRef(p);
+      setInitPromise(null);
       return p;
     })
     .catch((err) => {
-      _wcInitPromise = null;
+      setInitPromise(null);
       throw err;
     });
 
-  return _wcInitPromise;
+  setInitPromise(promise);
+  return promise;
 }
 
 /**
@@ -159,16 +182,24 @@ export async function connectWalletConnect(
   }
 
   return new Promise((resolve, reject) => {
-    // Remove any stale listeners before adding new ones
-    provider.removeAllListeners("display_uri");
-
-    provider.once("display_uri", (uri: string) => {
+    // One-shot URI handler — cleaned up after resolve/reject
+    let uriFired = false;
+    const uriHandler = (uri: string) => {
+      if (uriFired) return;
+      uriFired = true;
       if (onUri) onUri(uri);
-    });
+    };
+
+    const cleanup = () => {
+      try { provider.off?.("display_uri", uriHandler); } catch { /* ignore */ }
+    };
+
+    provider.on("display_uri", uriHandler);
 
     provider
       .enable()
       .then((accounts: string[]) => {
+        cleanup();
         if (!accounts || accounts.length === 0) {
           reject(new Error("No accounts returned from WalletConnect."));
           return;
@@ -176,14 +207,18 @@ export async function connectWalletConnect(
         resolve(accounts[0]);
       })
       .catch((err: Error) => {
-        // If the provider is in a bad state, discard it so the next attempt rebuilds
-        _wcProvider = null;
+        cleanup();
+        // Only discard the provider on truly fatal errors, not user cancellations
         const msg = err?.message ?? "";
-        if (
+        const isCancelled =
           msg.toLowerCase().includes("user rejected") ||
           msg.toLowerCase().includes("cancelled") ||
-          msg.toLowerCase().includes("closed")
-        ) {
+          msg.toLowerCase().includes("closed");
+        if (!isCancelled) {
+          // Fatal — rebuild provider next time
+          setProviderRef(null);
+        }
+        if (isCancelled) {
           reject(new Error("Connection cancelled."));
         } else {
           reject(err);
