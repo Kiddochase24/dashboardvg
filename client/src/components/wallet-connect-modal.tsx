@@ -165,6 +165,7 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
   const [wcWallets, setWcWallets] = useState<WCExplorerWallet[]>([]);
   const [wcWalletsLoading, setWcWalletsLoading] = useState(false);
   const [wcSearch, setWcSearch] = useState("");
+  const [wcTab, setWcTab] = useState<"wallets" | "qr">("wallets");
 
   const network = addressNetwork ?? detectAddressNetwork(enteredAddress);
   const [switching, setSwitching] = useState(false);
@@ -296,7 +297,7 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
 
       <div
         data-testid="modal-wallet-connect"
-        className={`relative z-10 w-full glass-card rounded-2xl overflow-hidden glow-primary transition-all duration-300 ${step === "connecting" && wcUri ? "max-w-2xl" : "max-w-md"}`}
+        className={`relative z-10 w-full glass-card rounded-2xl overflow-hidden glow-primary transition-all duration-300 max-w-md`}
       >
         <div className="h-1 bg-gradient-to-r from-violet-600 via-cyan-400 to-violet-600" />
 
@@ -434,108 +435,154 @@ export function WalletConnectModal({ enteredAddress, addressNetwork, onSuccess, 
 
           if (isWC && wcUri) {
             return (
-              <div className="flex flex-col sm:flex-row min-h-0">
-                {/* Left — QR */}
-                <div className="flex flex-col items-center justify-center p-6 gap-4 sm:border-r border-white/8 sm:w-56 flex-shrink-0">
-                  <div className="rounded-2xl bg-white p-2.5 shadow-xl shadow-black/50">
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(wcUri)}&margin=0`}
-                      alt="WalletConnect QR"
-                      width={180}
-                      height={180}
-                      className="rounded-lg block"
-                    />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs font-semibold text-foreground">Scan QR Code</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">works with any wallet app</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-green-400">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"/>
-                    <span>Session live</span>
-                  </div>
-                </div>
-
-                {/* Right — Wallet list */}
-                <div className="flex-1 flex flex-col p-4 min-w-0 gap-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-sm font-bold text-foreground">
-                        Choose a wallet
-                        {wcWallets.length > 0 && (
-                          <span className="ml-1.5 text-xs font-normal text-muted-foreground/60">
-                            ({wcWallets.length})
-                          </span>
-                        )}
-                      </h2>
-                      <p className="text-xs text-muted-foreground">Or scan the QR with your wallet app</p>
-                    </div>
-                    <button
-                      data-testid="button-close-wc-modal"
-                      onClick={handleCancelConnect}
-                      className="w-7 h-7 glass rounded-md border border-white/10 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
-                    >
-                      <X className="w-3.5 h-3.5"/>
-                    </button>
-                  </div>
-
-                  {/* Search */}
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50"/>
-                    <input
-                      data-testid="input-wc-search"
-                      type="text"
-                      placeholder="Search wallets…"
-                      value={wcSearch}
-                      onChange={(e) => setWcSearch(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 text-xs bg-white/5 border border-white/10 rounded-lg text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-violet-500/40"
-                    />
-                  </div>
-
-                  {/* Wallet list */}
-                  <div className="overflow-y-auto max-h-64 space-y-1 pr-0.5">
-                    {wcWalletsLoading && wcWallets.length === 0 ? (
-                      <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground/50 text-xs">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin"/>
-                        Loading wallets…
-                      </div>
-                    ) : filteredWallets.length === 0 ? (
-                      <div className="text-center py-6 text-xs text-muted-foreground/50">
-                        No wallets match "{wcSearch}"
-                      </div>
-                    ) : (
-                      filteredWallets.map((w) => (
-                        <a
-                          key={w.id}
-                          href={buildWalletLink(w, wcUri)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          data-testid={`link-wc-wallet-${w.id}`}
-                          className="flex items-center gap-3 px-3 py-2 rounded-xl glass border border-white/6 hover:border-white/15 hover:bg-white/5 transition-all group cursor-pointer"
-                        >
-                          <img
-                            src={walletImageUrl(w)}
-                            alt={w.name}
-                            width={32}
-                            height={32}
-                            className="w-8 h-8 rounded-lg flex-shrink-0 bg-white/10"
-                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                          />
-                          <span className="text-sm font-medium text-foreground flex-1 truncate">{w.name}</span>
-                          <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors flex-shrink-0"/>
-                        </a>
-                      ))
+              <div className="flex flex-col min-h-0">
+                {/* Header */}
+                <div className="flex items-center gap-2 px-4 pt-4 pb-3">
+                  <button
+                    data-testid="button-back-wc"
+                    onClick={handleCancelConnect}
+                    className="w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all flex-shrink-0"
+                  >
+                    <ArrowLeft className="w-4 h-4"/>
+                  </button>
+                  <div className="flex-1 text-center">
+                    <h2 className="text-sm font-semibold text-foreground">Connect a Wallet</h2>
+                    {wcWallets.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground/50 leading-none mt-0.5">
+                        {wcWallets.length} wallets available
+                      </p>
                     )}
                   </div>
-
                   <button
-                    data-testid="button-cancel-connecting"
+                    data-testid="button-close-wc-modal"
                     onClick={handleCancelConnect}
-                    className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center gap-1 justify-center pt-1"
+                    className="w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all flex-shrink-0"
                   >
-                    <ArrowLeft className="w-3 h-3"/> Back to wallet list
+                    <X className="w-4 h-4"/>
                   </button>
                 </div>
+
+                {/* Tab switcher */}
+                <div className="flex mx-4 mb-3 rounded-lg bg-white/5 border border-white/8 p-0.5">
+                  <button
+                    data-testid="tab-wallets"
+                    onClick={() => setWcTab("wallets")}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      wcTab === "wallets"
+                        ? "bg-white/10 text-foreground shadow-sm"
+                        : "text-muted-foreground/60 hover:text-muted-foreground"
+                    }`}
+                  >
+                    All Wallets
+                  </button>
+                  <button
+                    data-testid="tab-qr"
+                    onClick={() => setWcTab("qr")}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      wcTab === "qr"
+                        ? "bg-white/10 text-foreground shadow-sm"
+                        : "text-muted-foreground/60 hover:text-muted-foreground"
+                    }`}
+                  >
+                    QR Code
+                  </button>
+                </div>
+
+                {wcTab === "wallets" ? (
+                  <div className="flex flex-col px-4 pb-4 gap-3 min-h-0">
+                    {/* Search */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/40 pointer-events-none"/>
+                      <input
+                        data-testid="input-wc-search"
+                        type="text"
+                        placeholder="Search wallets…"
+                        value={wcSearch}
+                        onChange={(e) => setWcSearch(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 text-sm bg-white/5 border border-white/10 rounded-xl text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-violet-500/50 focus:bg-white/8 transition-all"
+                      />
+                    </div>
+
+                    {/* Wallet grid */}
+                    <div className="overflow-y-auto max-h-72 pr-0.5 -mr-0.5">
+                      {wcWalletsLoading && wcWallets.length === 0 ? (
+                        <div className="grid grid-cols-4 gap-2">
+                          {Array.from({ length: 16 }).map((_, i) => (
+                            <div key={i} className="flex flex-col items-center gap-1.5 p-2 rounded-xl">
+                              <div className="w-12 h-12 rounded-2xl bg-white/5 animate-pulse"/>
+                              <div className="w-12 h-2 rounded bg-white/5 animate-pulse"/>
+                            </div>
+                          ))}
+                        </div>
+                      ) : filteredWallets.length === 0 ? (
+                        <div className="text-center py-10 text-sm text-muted-foreground/50">
+                          No wallets match "{wcSearch}"
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-4 gap-1">
+                          {filteredWallets.map((w) => (
+                            <a
+                              key={w.id}
+                              href={buildWalletLink(w, wcUri)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              data-testid={`link-wc-wallet-${w.id}`}
+                              className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl hover:bg-white/8 active:bg-white/12 transition-all group cursor-pointer"
+                            >
+                              <div className="w-12 h-12 rounded-2xl overflow-hidden bg-white/5 border border-white/8 group-hover:border-white/15 group-hover:scale-105 transition-all duration-150 flex items-center justify-center flex-shrink-0">
+                                <img
+                                  src={walletImageUrl(w)}
+                                  alt={w.name}
+                                  width={48}
+                                  height={48}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const el = e.currentTarget as HTMLImageElement;
+                                    el.style.display = "none";
+                                    const parent = el.parentElement;
+                                    if (parent) {
+                                      parent.innerHTML = `<span class="text-lg font-bold text-white/40">${w.name[0]}</span>`;
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <span className="text-[10px] leading-tight text-muted-foreground/70 group-hover:text-foreground text-center w-full truncate transition-colors">
+                                {w.name}
+                              </span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Live indicator */}
+                    <div className="flex items-center justify-center gap-1.5 text-[10px] text-green-400/70">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"/>
+                      <span>Session ready — tap any wallet to open it</span>
+                    </div>
+                  </div>
+                ) : (
+                  /* QR Tab */
+                  <div className="flex flex-col items-center px-4 pb-6 gap-4">
+                    <div className="rounded-2xl bg-white p-3 shadow-2xl shadow-black/60">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(wcUri)}&margin=0`}
+                        alt="WalletConnect QR"
+                        width={200}
+                        height={200}
+                        className="rounded-lg block"
+                      />
+                    </div>
+                    <div className="text-center space-y-1">
+                      <p className="text-sm font-semibold text-foreground">Scan with your wallet app</p>
+                      <p className="text-xs text-muted-foreground/60">Works with MetaMask, Trust, Rainbow, Exodus, and any WalletConnect-compatible wallet</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-green-400">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"/>
+                      <span>Session live</span>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           }
