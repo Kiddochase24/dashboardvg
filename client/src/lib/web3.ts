@@ -74,7 +74,7 @@ function buildProviderConfig() {
   return {
     projectId: getWCProjectId(),
     chains: [1] as [number],
-    showQrModal: false,
+    showQrModal: true,
     optionalChains: [137, 56, 42161, 10] as [number, ...number[]],
     metadata: {
       name: "VaultGuard",
@@ -171,8 +171,8 @@ export async function connectWalletConnect(
     provider = await getWCProvider();
   } catch {
     // If cached provider failed, try fresh
-    _wcProvider = null;
-    _wcInitPromise = null;
+    setProviderRef(null);
+    setInitPromise(null);
     provider = await getWCProvider();
   }
 
