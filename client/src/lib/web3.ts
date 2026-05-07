@@ -47,9 +47,33 @@ export function isCoinbaseProvider(): boolean {
 }
 
 // ─── WalletConnect v2 (ethereum-provider + built-in QR modal) ─────────────────
-// Supports 250+ wallets. The provider is created once and reused.
+// Supports 250+ wallets.
+// IMPORTANT: EthereumProvider instances become unusable after disconnect() is
+// called. We never reuse a cached instance — a fresh one is created for every
+// connection attempt. Stale WalletConnect localStorage keys are wiped first so
+// old sessions from different domains can't interfere (dev vs prod).
 
-async function buildWCProvider(): Promise<InstanceType<typeof EthereumProvider>> {
+function clearWCStorage(): void {
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith("wc@") || key.startsWith("W3M") || key.startsWith("walletconnect"))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  } catch { /* ignore storage errors */ }
+}
+
+async function createFreshWCProvider(): Promise<InstanceType<typeof EthereumProvider>> {
+  // Silently tear down any previous instance
+  if (window.__vgWCProvider) {
+    try { await window.__vgWCProvider.disconnect(); } catch { /* ignore */ }
+    window.__vgWCProvider = null;
+  }
+  clearWCStorage();
+
   const provider = await EthereumProvider.init({
     projectId: WC_PROJECT_ID,
     chains: [1],
@@ -62,29 +86,13 @@ async function buildWCProvider(): Promise<InstanceType<typeof EthereumProvider>>
       icons: [`${window.location.origin}/favicon.svg`],
     },
   });
+  window.__vgWCProvider = provider;
   return provider;
 }
 
-let providerPromise: Promise<InstanceType<typeof EthereumProvider>> | null = null;
-
-function getWCProvider(): Promise<InstanceType<typeof EthereumProvider>> {
-  if (window.__vgWCProvider) return Promise.resolve(window.__vgWCProvider);
-  if (!providerPromise) {
-    providerPromise = buildWCProvider().then((p) => {
-      window.__vgWCProvider = p;
-      return p;
-    }).catch((err) => {
-      providerPromise = null;
-      throw err;
-    });
-  }
-  return providerPromise;
-}
-
-/** Pre-warm the WalletConnect provider early so the modal opens faster on click. */
-export function preInitWalletConnect(): void {
-  getWCProvider().catch(() => { /* ignore pre-init errors */ });
-}
+/** Pre-warm: intentionally a no-op. Creating the provider too early causes
+ *  stale instances on subsequent connect attempts. */
+export function preInitWalletConnect(): void { /* intentional no-op */ }
 
 // ─── Wallet connect functions ─────────────────────────────────────────────────
 
@@ -131,17 +139,11 @@ export async function connectPhantom(): Promise<string> {
 
 /**
  * Open the official WalletConnect v2 modal (250+ wallets) and resolve
- * with the connected EVM address.
+ * with the connected EVM address. Always creates a fresh provider so
+ * repeated calls work reliably.
  */
 export async function connectWalletConnect(): Promise<string> {
-  const provider = await getWCProvider();
-
-  // Disconnect any existing session so the picker always shows
-  try {
-    if (provider.connected) {
-      await provider.disconnect();
-    }
-  } catch { /* ignore */ }
+  const provider = await createFreshWCProvider();
 
   return new Promise<string>((resolve, reject) => {
     let settled = false;
@@ -158,10 +160,6 @@ export async function connectWalletConnect(): Promise<string> {
 
     provider.once("accountsChanged", (accounts: string[]) => {
       if (accounts?.[0]) finish(() => resolve(accounts[0]));
-    });
-
-    provider.once("display_uri", () => {
-      // Modal is opening — nothing extra needed
     });
 
     provider.enable()
