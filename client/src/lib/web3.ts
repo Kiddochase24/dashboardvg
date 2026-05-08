@@ -1,4 +1,13 @@
-import EthereumProvider from "@walletconnect/ethereum-provider";
+import { createAppKit, type AppKit } from "@reown/appkit";
+import { EthersAdapter } from "@reown/appkit-adapter-ethers";
+import {
+  mainnet,
+  polygon,
+  arbitrum,
+  optimism,
+  bsc,
+  base,
+} from "@reown/appkit/networks";
 
 declare global {
   interface Window {
@@ -14,17 +23,16 @@ declare global {
       disconnect: () => Promise<void>;
       signMessage: (msg: Uint8Array, encoding?: string) => Promise<{ signature: Uint8Array }>;
     };
-    __vgWCProvider?: InstanceType<typeof EthereumProvider> | null;
+    __vgAppKit?: AppKit | null;
   }
 }
 
 export type WalletProvider = "metamask" | "coinbase" | "phantom" | "trust" | "rainbow" | "walletconnect" | "import";
 
-// WalletConnect project IDs are intentionally public — they appear in every
-// dapp's JavaScript bundle.
-const WC_PROJECT_ID =
-  (import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string) ||
-  "9a1d47bad3db7d80bfd12fa715bf0e0b";
+// WalletConnect/Reown project IDs are intentionally public — they appear in
+// every dapp's JavaScript bundle. Hardcoded so it's always available in
+// both dev (Vite middleware) and production (Vite build).
+const WC_PROJECT_ID = "9a1d47bad3db7d80bfd12fa715bf0e0b";
 
 export function isMobile(): boolean {
   return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
@@ -46,53 +54,43 @@ export function isCoinbaseProvider(): boolean {
   return hasEthereumProvider() && !!window.ethereum?.isCoinbaseWallet;
 }
 
-// ─── WalletConnect v2 (ethereum-provider + built-in QR modal) ─────────────────
-// Supports 250+ wallets.
-// IMPORTANT: EthereumProvider instances become unusable after disconnect() is
-// called. We never reuse a cached instance — a fresh one is created for every
-// connection attempt. Stale WalletConnect localStorage keys are wiped first so
-// old sessions from different domains can't interfere (dev vs prod).
+// ─── Reown AppKit (official WalletConnect modal — 250+ EVM wallets) ──────────
+// IMPORTANT: SolanaAdapter is intentionally NOT included. Its syncConnectors()
+// method fires APKT008 "Project ID Missing" before the base client has a chance
+// to set OptionsController.state.projectId — a timing bug that causes AppKit to
+// display an error alert inside the modal instead of the wallet list.
+// Solana users can still connect via the direct Phantom option.
 
-function clearWCStorage(): void {
-  try {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith("wc@") || key.startsWith("W3M") || key.startsWith("walletconnect"))) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach((k) => localStorage.removeItem(k));
-  } catch { /* ignore storage errors */ }
-}
-
-async function createFreshWCProvider(): Promise<InstanceType<typeof EthereumProvider>> {
-  // Silently tear down any previous instance
-  if (window.__vgWCProvider) {
-    try { await window.__vgWCProvider.disconnect(); } catch { /* ignore */ }
-    window.__vgWCProvider = null;
-  }
-  clearWCStorage();
-
-  const provider = await EthereumProvider.init({
+function buildAppKit(): AppKit {
+  return createAppKit({
+    adapters: [new EthersAdapter()],
+    networks: [mainnet, polygon, arbitrum, optimism, bsc, base],
     projectId: WC_PROJECT_ID,
-    chains: [1],
-    optionalChains: [137, 42161, 10, 56, 8453],
-    showQrModal: true,
     metadata: {
       name: "VaultGuard",
       description: "Web3 Wallet Security Dashboard",
       url: window.location.origin,
       icons: [`${window.location.origin}/favicon.svg`],
     },
+    features: {
+      analytics: false,
+      email: false,
+      socials: false,
+    },
   });
-  window.__vgWCProvider = provider;
-  return provider;
 }
 
-/** Pre-warm: intentionally a no-op. Creating the provider too early causes
- *  stale instances on subsequent connect attempts. */
-export function preInitWalletConnect(): void { /* intentional no-op */ }
+function getAppKit(): AppKit {
+  if (window.__vgAppKit) return window.__vgAppKit;
+  const kit = buildAppKit();
+  window.__vgAppKit = kit;
+  return kit;
+}
+
+/** Pre-warm AppKit on page load so the modal opens instantly on click. */
+export function preInitWalletConnect(): void {
+  try { getAppKit(); } catch { /* ignore pre-init errors */ }
+}
 
 // ─── Wallet connect functions ─────────────────────────────────────────────────
 
@@ -138,39 +136,57 @@ export async function connectPhantom(): Promise<string> {
 }
 
 /**
- * Open the official WalletConnect v2 modal (250+ wallets) and resolve
- * with the connected EVM address. Always creates a fresh provider so
- * repeated calls work reliably.
+ * Open the Reown AppKit modal (250+ EVM wallets) and resolve with the
+ * connected address. AppKit manages sessions internally so repeated calls work.
  */
 export async function connectWalletConnect(): Promise<string> {
-  const provider = await createFreshWCProvider();
+  const kit = getAppKit();
+
+  // Disconnect any existing session so the wallet picker always shows fresh
+  try {
+    if (kit.getIsConnectedState()) {
+      await kit.disconnect();
+    }
+  } catch { /* ignore */ }
 
   return new Promise<string>((resolve, reject) => {
     let settled = false;
     const finish = (fn: () => void) => {
       if (settled) return;
       settled = true;
+      try { unsubAcct?.(); } catch { /* ignore */ }
+      try { unsubState?.(); } catch { /* ignore */ }
       fn();
     };
 
-    provider.once("connect", (info: { accounts?: string[]; chainId?: unknown }) => {
-      const addr = (info?.accounts?.[0] ?? provider.accounts?.[0]) as string | undefined;
-      if (addr) finish(() => resolve(addr));
+    const checkAddress = (): string | null => {
+      const evm = kit.getAddress("eip155");
+      if (evm) return evm;
+      const any = kit.getAddress();
+      return any ?? null;
+    };
+
+    const unsubAcct = kit.subscribeAccount((acct) => {
+      if (acct?.isConnected) {
+        const addr = checkAddress();
+        if (addr) finish(() => resolve(addr));
+      }
     });
 
-    provider.once("accountsChanged", (accounts: string[]) => {
-      if (accounts?.[0]) finish(() => resolve(accounts[0]));
+    const unsubState = kit.subscribeState((state) => {
+      if (state.open === false) {
+        setTimeout(() => {
+          if (settled) return;
+          const addr = checkAddress();
+          if (addr) finish(() => resolve(addr));
+          else finish(() => reject(new Error("Connection cancelled.")));
+        }, 200);
+      }
     });
 
-    provider.enable()
-      .then((accounts) => {
-        if (accounts?.[0]) finish(() => resolve(accounts[0]));
-      })
-      .catch((err: unknown) => {
-        finish(() =>
-          reject(err instanceof Error ? err : new Error("WalletConnect connection cancelled."))
-        );
-      });
+    kit.open().catch((err) => {
+      finish(() => reject(err instanceof Error ? err : new Error("Failed to open WalletConnect.")));
+    });
   });
 }
 
