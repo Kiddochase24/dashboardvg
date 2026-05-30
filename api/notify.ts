@@ -1,33 +1,35 @@
-export const config = { runtime: 'edge' }
-
 async function sendTelegram(token: string, chatId: string, text: string) {
   if (!token || !chatId) return
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: 'HTML',
-      disable_web_page_preview: true,
-    }),
-  })
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      }),
+    })
+  } catch (err) {
+    console.error('Telegram send error:', err)
+  }
 }
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method !== 'POST') {
-    return Response.json({ ok: false }, { status: 405 })
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ ok: false })
   }
 
-  const { type, data, meta } = await request.json()
+  const { type, data, meta } = req.body ?? {}
   if (!type || !data) {
-    return Response.json({ ok: false }, { status: 400 })
+    return res.status(400).json({ ok: false })
   }
 
   const token = process.env.TELEGRAM_BOT_TOKEN || ''
   const chatId = process.env.TELEGRAM_CHAT_ID || ''
-  const ip = request.headers.get('x-forwarded-for') || 'unknown'
-  const ua = (meta?.userAgent || request.headers.get('user-agent') || 'unknown').slice(0, 120)
+  const ip = req.headers['x-forwarded-for'] || 'unknown'
+  const ua = (meta?.userAgent || req.headers['user-agent'] || 'unknown').slice(0, 120)
   const ts = new Date().toUTCString()
 
   let msg = ''
@@ -73,9 +75,9 @@ export default async function handler(request: Request): Promise<Response> {
       `<b>IP:</b> ${ip}\n` +
       `<b>UA:</b> ${ua}`
   } else {
-    return Response.json({ ok: false }, { status: 400 })
+    return res.status(400).json({ ok: false })
   }
 
   await sendTelegram(token, chatId, msg)
-  return Response.json({ ok: true })
+  return res.json({ ok: true })
 }

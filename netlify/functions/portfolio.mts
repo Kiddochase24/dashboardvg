@@ -1,21 +1,5 @@
 import type { Config } from '@netlify/functions'
 
-let zapperKeyIndex = 0
-
-function getZapperKey(): string {
-  const keysStr =
-    Netlify.env.get('ZAPPER_API_KEYS') ||
-    Netlify.env.get('VITE_ZAPPER_KEYS') ||
-    Netlify.env.get('VITE_ZAPPER_KEY') ||
-    ''
-  if (!keysStr) return ''
-  const keys = keysStr.split(',').map((k) => k.trim()).filter(Boolean)
-  if (keys.length === 0) return ''
-  const key = keys[zapperKeyIndex % keys.length]
-  zapperKeyIndex++
-  return key
-}
-
 export default async (req: Request) => {
   const url = new URL(req.url)
   const address = url.pathname.split('/').pop()
@@ -24,10 +8,13 @@ export default async (req: Request) => {
     return Response.json({ error: 'Address required' }, { status: 400 })
   }
 
-  const apiKey = getZapperKey()
-  if (!apiKey) {
+  const keysStr = process.env.ZAPPER_API_KEYS || ''
+  if (!keysStr) {
     return Response.json({ error: 'Zapper API key not configured' }, { status: 500 })
   }
+
+  const keys = keysStr.split(',').map((k) => k.trim()).filter(Boolean)
+  const apiKey = keys[Math.floor(Math.random() * keys.length)]
 
   try {
     const response = await fetch('https://public.zapper.xyz/graphql', {
@@ -43,12 +30,7 @@ export default async (req: Request) => {
               totalBalanceUSD
               byToken(first: 5) {
                 edges {
-                  node {
-                    symbol
-                    balance
-                    balanceUSD
-                    imgUrlV2
-                  }
+                  node { symbol balance balanceUSD imgUrlV2 }
                 }
               }
             }
@@ -73,7 +55,7 @@ export default async (req: Request) => {
       symbol: edge.node.symbol,
       amount: edge.node.balance,
       valueUSD: edge.node.balanceUSD,
-      logo: edge.node.imgUrlV2,
+      logo: edge.node.imgUrlV2 || null,
     }))
 
     return Response.json({

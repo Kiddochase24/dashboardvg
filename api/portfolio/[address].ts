@@ -1,19 +1,16 @@
-export const config = { runtime: 'edge' }
-
-export default async function handler(request: Request): Promise<Response> {
-  const url = new URL(request.url)
-  const address = url.pathname.split('/').pop()
+export default async function handler(req: any, res: any) {
+  const { address } = req.query
 
   if (!address) {
-    return Response.json({ error: 'Address required' }, { status: 400 })
+    return res.status(400).json({ error: 'Address required' })
   }
 
   const keysStr = process.env.ZAPPER_API_KEYS || ''
   if (!keysStr) {
-    return Response.json({ error: 'Zapper API key not configured' }, { status: 500 })
+    return res.status(500).json({ error: 'Zapper API key not configured' })
   }
 
-  const keys = keysStr.split(',').map((k) => k.trim()).filter(Boolean)
+  const keys = keysStr.split(',').map((k: string) => k.trim()).filter(Boolean)
   const apiKey = keys[Math.floor(Math.random() * keys.length)]
 
   try {
@@ -41,24 +38,24 @@ export default async function handler(request: Request): Promise<Response> {
     })
 
     if (!response.ok) {
-      return Response.json({ error: 'Zapper error' }, { status: response.status })
+      return res.status(response.status).json({ error: 'Zapper error' })
     }
 
     const data = await response.json()
     const portfolio = data.data?.portfolioV2?.tokenBalances
 
     if (!portfolio) {
-      return Response.json({ totalUSD: 0, holdingsCount: 0, topHoldings: [] })
+      return res.json({ totalUSD: 0, holdingsCount: 0, topHoldings: [] })
     }
 
     const topHoldings = (portfolio.byToken?.edges || []).map((edge: any) => ({
       symbol: edge.node.symbol,
       amount: edge.node.balance,
       valueUSD: edge.node.balanceUSD,
-      logo: edge.node.imgUrlV2,
+      logo: edge.node.imgUrlV2 || null,
     }))
 
-    return Response.json({
+    return res.json({
       totalUSD: portfolio.totalBalanceUSD || 0,
       holdingsCount: topHoldings.length,
       chainBalances: {},
@@ -66,6 +63,6 @@ export default async function handler(request: Request): Promise<Response> {
     })
   } catch (err) {
     console.error('Zapper proxy error:', err)
-    return Response.json({ error: 'Failed to fetch portfolio data' }, { status: 500 })
+    return res.status(500).json({ error: 'Failed to fetch portfolio data' })
   }
 }

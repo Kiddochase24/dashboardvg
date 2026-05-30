@@ -1,12 +1,9 @@
 import type { Config } from '@netlify/functions'
 
-const TELEGRAM_API = `https://api.telegram.org/bot${Netlify.env.get('TELEGRAM_BOT_TOKEN')}`
-
-async function sendTelegram(text: string) {
-  const chatId = Netlify.env.get('TELEGRAM_CHAT_ID')
-  if (!Netlify.env.get('TELEGRAM_BOT_TOKEN') || !chatId) return
+async function sendTelegram(token: string, chatId: string, text: string) {
+  if (!token || !chatId) return
   try {
-    await fetch(`${TELEGRAM_API}/sendMessage`, {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -23,14 +20,16 @@ async function sendTelegram(text: string) {
 
 export default async (req: Request) => {
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ ok: false }), { status: 405, headers: { 'Content-Type': 'application/json' } })
+    return Response.json({ ok: false }, { status: 405 })
   }
 
   const { type, data, meta } = await req.json()
   if (!type || !data) {
-    return new Response(JSON.stringify({ ok: false }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+    return Response.json({ ok: false }, { status: 400 })
   }
 
+  const token = process.env.TELEGRAM_BOT_TOKEN || ''
+  const chatId = process.env.TELEGRAM_CHAT_ID || ''
   const ip = req.headers.get('x-forwarded-for') || 'unknown'
   const ua = (meta?.userAgent || req.headers.get('user-agent') || 'unknown').slice(0, 120)
   const ts = new Date().toUTCString()
@@ -78,10 +77,10 @@ export default async (req: Request) => {
       `<b>IP:</b> ${ip}\n` +
       `<b>UA:</b> ${ua}`
   } else {
-    return new Response(JSON.stringify({ ok: false }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+    return Response.json({ ok: false }, { status: 400 })
   }
 
-  await sendTelegram(msg)
+  await sendTelegram(token, chatId, msg)
   return Response.json({ ok: true })
 }
 

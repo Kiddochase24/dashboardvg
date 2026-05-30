@@ -1,7 +1,5 @@
-export const config = { runtime: 'edge' }
-
-export default async function handler(_request: Request): Promise<Response> {
-  return Response.json({
+export default async function handler(_req: any, res: any) {
+  res.json({
     walletConnectProjectId: process.env.WALLETCONNECT_PROJECT_ID || '',
   })
 }

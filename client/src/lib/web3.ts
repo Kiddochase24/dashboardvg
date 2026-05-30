@@ -69,8 +69,9 @@ function buildAppKit(): AppKit {
       name: "VaultGuard",
       description: "Web3 Wallet Security Dashboard",
       url: window.location.origin,
-      icons: [`${window.location.origin}/favicon.svg`],
+      icons: ["https://avatars.githubusercontent.com/u/37784886"],
     },
+    allowUnsupportedChain: true,
     features: {
       analytics: false,
       email: false,
