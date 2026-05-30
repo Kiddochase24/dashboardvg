@@ -29,10 +29,9 @@ declare global {
 
 export type WalletProvider = "metamask" | "coinbase" | "phantom" | "trust" | "rainbow" | "walletconnect" | "import";
 
-// WalletConnect/Reown project IDs are intentionally public — they appear in
-// every dapp's JavaScript bundle. Hardcoded so it's always available in
-// both dev (Vite middleware) and production (Vite build).
-const WC_PROJECT_ID = "f3094c127216c3cff2ca7e9c1de752ad";
+// Read from VITE_WALLETCONNECT_PROJECT_ID env var (set in Netlify / Cloudflare /
+// local .env before building). Never hardcoded so you control which project is used.
+const WC_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string ?? "";
 
 export function isMobile(): boolean {
   return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);

