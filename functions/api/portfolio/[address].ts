@@ -1,69 +1,65 @@
+const EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/
+const CHAINS: Record<string, string> = {
+  'eth-mainnet': 'Ethereum',
+  'matic-mainnet': 'Polygon',
+  'arbitrum-mainnet': 'Arbitrum',
+  'optimism-mainnet': 'Optimism',
+  'bsc-mainnet': 'BNB Chain',
+  'base-mainnet': 'Base',
+}
+
+async function fetchChainHoldings(chainName: string, address: string, apiKey: string) {
+  const url = `https://api.covalenthq.com/v1/${chainName}/address/${address}/balances_v2/?quote-currency=USD&no-spam=true&nft=false`
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } })
+  if (!response.ok) throw new Error(`Balance API ${response.status} on ${chainName}`)
+  const json = await response.json()
+  return (json.data?.items || [])
+    .filter((item: any) => (item.quote ?? 0) > 0)
+    .map((item: any) => ({
+      symbol: item.contract_ticker_symbol,
+      amount: Number(item.balance) / 10 ** item.contract_decimals,
+      valueUSD: item.quote,
+      logo: item.logo_url || null,
+      chain: CHAINS[chainName],
+    }))
+}
+
 export async function onRequestGet(context: any) {
   const { env, params } = context
-  const address = params.address as string
-
-  if (!address) {
-    return Response.json({ error: 'Address required' }, { status: 400 })
+  const address = String(params.address || '')
+  if (!EVM_ADDRESS.test(address)) {
+    return Response.json({ error: 'Valid EVM address required' }, { status: 400 })
   }
 
-  const keysStr = env.ZAPPER_API_KEYS || env.VITE_ZAPPER_KEYS || env.VITE_ZAPPER_KEY || ''
-  if (!keysStr) {
-    return Response.json({ error: 'Zapper API key not configured' }, { status: 500 })
+  const apiKey = env.GOLDRUSH_API_KEY
+  if (!apiKey) {
+    return Response.json({ error: 'Balance API key not configured' }, { status: 500 })
   }
-
-  const keys = keysStr.split(',').map((k: string) => k.trim()).filter(Boolean)
-  const apiKey = keys[Math.floor(Math.random() * keys.length)]
 
   try {
-    const response = await fetch('https://public.zapper.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-zapper-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        query: `query TokenBalances($addresses: [Address!]!) {
-          portfolioV2(addresses: $addresses) {
-            tokenBalances {
-              totalBalanceUSD
-              byToken(first: 5) {
-                edges {
-                  node { symbol balance balanceUSD imgUrlV2 }
-                }
-              }
-            }
-          }
-        }`,
-        variables: { addresses: [address] },
-      }),
-    })
-
-    if (!response.ok) {
-      return Response.json({ error: 'Zapper error' }, { status: response.status })
+    const names = Object.keys(CHAINS)
+    const results = await Promise.allSettled(names.map(name => fetchChainHoldings(name, address, apiKey)))
+    if (results.every(r => r.status === 'rejected')) {
+      return Response.json({ error: 'Balance API error' }, { status: 502 })
     }
 
-    const data = await response.json()
-    const portfolio = data.data?.portfolioV2?.tokenBalances
+    const holdings = results.flatMap(r => (r.status === 'fulfilled' ? r.value : []))
+    holdings.sort((a: any, b: any) => b.valueUSD - a.valueUSD)
 
-    if (!portfolio) {
-      return Response.json({ totalUSD: 0, holdingsCount: 0, topHoldings: [] })
+    const chainBalances: Record<string, number> = {}
+    for (const h of holdings) {
+      chainBalances[h.chain] = (chainBalances[h.chain] || 0) + h.valueUSD
     }
-
-    const topHoldings = (portfolio.byToken?.edges || []).map((edge: any) => ({
-      symbol: edge.node.symbol,
-      amount: edge.node.balance,
-      valueUSD: edge.node.balanceUSD,
-      logo: edge.node.imgUrlV2,
-    }))
+    const totalUSD = holdings.reduce((sum: number, h: any) => sum + h.valueUSD, 0)
 
     return Response.json({
-      totalUSD: portfolio.totalBalanceUSD || 0,
-      holdingsCount: topHoldings.length,
-      chainBalances: {},
-      topHoldings,
+      totalUSD,
+      holdingsCount: holdings.length,
+      chainBalances,
+      topHoldings: holdings.slice(0, 5),
     })
   } catch (err) {
-    console.error('Zapper proxy error:', err)
+    console.error('Balance proxy error:', err)
     return Response.json({ error: 'Failed to fetch portfolio data' }, { status: 500 })
   }
 }

@@ -257,7 +257,7 @@ export interface PortfolioData {
   totalUSD: number;
   holdingsCount: number;
   chainBalances: Record<string, number>;
-  topHoldings: Array<{ symbol: string; amount: number; valueUSD: number; logo?: string }>;
+  topHoldings: Array<{ symbol: string; amount: number; valueUSD: number; logo?: string | null; chain: string }>;
 }
 
 export async function getPortfolioBalance(address: string): Promise<PortfolioData | null> {

@@ -14,7 +14,6 @@ import {
   Monitor,
   RefreshCw,
   ChevronRight,
-  Sparkles,
   Flame,
   CheckCircle2,
   Info,
@@ -45,7 +44,7 @@ const FEATURES = [
   {
     icon: RefreshCw,
     title: "Account Recovery",
-    description: "Recover access to wallets with lost credentials using our secure multi-factor recovery system.",
+    description: "Regain access if you lose your credentials.",
     color: "from-violet-500/20 to-purple-500/10",
     iconColor: "text-violet-400",
     borderColor: "border-violet-500/20",
@@ -53,7 +52,7 @@ const FEATURES = [
   {
     icon: AlertTriangle,
     title: "Revoke Approvals",
-    description: "Instantly revoke token approvals and permissions from dApps that may pose security risks.",
+    description: "Remove risky token permissions from apps.",
     color: "from-orange-500/20 to-red-500/10",
     iconColor: "text-orange-400",
     borderColor: "border-orange-500/20",
@@ -61,7 +60,7 @@ const FEATURES = [
   {
     icon: Link2,
     title: "DApp Connection",
-    description: "Securely manage and monitor all connected decentralized applications from one dashboard.",
+    description: "See and manage the apps you've connected.",
     color: "from-cyan-500/20 to-blue-500/10",
     iconColor: "text-cyan-400",
     borderColor: "border-cyan-500/20",
@@ -69,7 +68,7 @@ const FEATURES = [
   {
     icon: Flame,
     title: "Gas Magic Tool",
-    description: "Track all gas fees spent and claim them back as rewards. Our newest tool just launched!",
+    description: "Claim back gas fees as rewards.",
     color: "from-yellow-500/20 to-orange-500/10",
     iconColor: "text-yellow-400",
     borderColor: "border-yellow-500/20",
@@ -78,7 +77,7 @@ const FEATURES = [
   {
     icon: Shield,
     title: "Validate Wallet",
-    description: "Prove ownership and unlock advanced security features with cryptographic verification.",
+    description: "Prove you own this wallet.",
     color: "from-green-500/20 to-emerald-500/10",
     iconColor: "text-green-400",
     borderColor: "border-green-500/20",
@@ -86,7 +85,7 @@ const FEATURES = [
   {
     icon: Settings,
     title: "Fix DApp Issues",
-    description: "Diagnose and resolve connection issues, stuck transactions, and dApp compatibility problems.",
+    description: "Find and fix stuck transactions.",
     color: "from-blue-500/20 to-indigo-500/10",
     iconColor: "text-blue-400",
     borderColor: "border-blue-500/20",
@@ -94,7 +93,7 @@ const FEATURES = [
   {
     icon: Monitor,
     title: "Admin Control Panel",
-    description: "View all devices with your wallet logged in, remove unauthorized access, and get full admin privileges.",
+    description: "See devices signed in to this wallet and remove any you don't recognize.",
     color: "from-pink-500/20 to-rose-500/10",
     iconColor: "text-pink-400",
     borderColor: "border-pink-500/20",
@@ -199,14 +198,9 @@ export default function ConnectWallet() {
           </div>
           <div>
             <span className="font-bold text-lg gradient-text tracking-tight">VaultGuard</span>
-            <span className="text-muted-foreground text-xs ml-2 font-mono">v3.0</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 glass rounded-full px-3 py-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-xs text-muted-foreground font-mono">MAINNET</span>
-          </div>
           <div className="flex items-center gap-1 glass rounded-md px-2 py-1">
             <SiEthereum className="w-3 h-3 text-violet-400" />
             <SiBitcoin className="w-3 h-3 text-yellow-400" />
@@ -215,25 +209,6 @@ export default function ConnectWallet() {
         </div>
       </header>
 
-      {/* Gas Magic Banner */}
-      <div className="relative z-10 mx-4 mt-4">
-        <div className="glass rounded-md border border-yellow-500/30 bg-gradient-to-r from-yellow-500/10 via-orange-500/5 to-transparent px-4 py-3 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-md bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center flex-shrink-0">
-            <Flame className="w-4 h-4 text-yellow-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-yellow-400 font-semibold text-sm">NEW FEATURE</span>
-              <span className="text-xs glass rounded-full px-2 py-0.5 text-yellow-300 border border-yellow-500/20">Just Launched</span>
-            </div>
-            <p className="text-muted-foreground text-xs mt-0.5 truncate">
-              Gas Magic Tool — Connect your wallet to track all gas fees & claim them back as rewards
-            </p>
-          </div>
-          <Sparkles className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-        </div>
-      </div>
-
       {/* Main */}
       <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
@@ -241,17 +216,13 @@ export default function ConnectWallet() {
           {/* Left: Connect form */}
           <div className="flex flex-col gap-5">
             <div>
-              <div className="inline-flex items-center gap-2 glass rounded-full px-3 py-1.5 mb-4 border border-violet-500/20">
-                <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
-                <span className="text-xs text-violet-300 font-mono uppercase tracking-widest">Secure Access Portal</span>
-              </div>
               <h1 className="text-4xl font-bold leading-tight mb-3">
-                <span className="gradient-text glow-text-primary">Access Your</span>
+                <span className="gradient-text glow-text-primary">Check your</span>
                 <br />
-                <span className="text-foreground">Wallet Dashboard</span>
+                <span className="text-foreground">wallet</span>
               </h1>
               <p className="text-muted-foreground text-base leading-relaxed">
-                Enter your wallet address, then connect via your wallet app to verify ownership and access your full dashboard.
+                Paste your address to see its balances and security settings.
               </p>
             </div>
 
@@ -263,28 +234,8 @@ export default function ConnectWallet() {
                 </div>
                 <div>
                   <h2 className="font-semibold text-foreground">Connect Wallet</h2>
-                  <p className="text-xs text-muted-foreground">Step 1 of 2 — Enter your address</p>
+                  <p className="text-xs text-muted-foreground">Paste your address to begin</p>
                 </div>
-              </div>
-
-              {/* Step indicators */}
-              <div className="flex items-center gap-2 mb-5">
-                <div className="flex items-center gap-2 flex-1">
-                  <div className="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center text-xs text-white font-bold flex-shrink-0">1</div>
-                  <div className="flex-1 h-px bg-violet-500/40" />
-                </div>
-                <div className="flex items-center gap-2 flex-1">
-                  <div className="w-6 h-6 rounded-full glass border border-white/20 flex items-center justify-center text-xs text-muted-foreground font-bold flex-shrink-0">2</div>
-                  <div className="flex-1 h-px bg-white/10" />
-                </div>
-                <div className="w-6 h-6 rounded-full glass border border-white/20 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground/40" />
-                </div>
-              </div>
-              <div className="flex justify-between text-xs text-muted-foreground/60 mb-5 -mt-3 px-1">
-                <span className="text-violet-400">Enter Address</span>
-                <span>Connect Wallet</span>
-                <span>Dashboard</span>
               </div>
 
               <div className="space-y-4">
@@ -309,10 +260,7 @@ export default function ConnectWallet() {
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <div className={`w-1.5 h-1.5 rounded-full ${addressNetwork === "eth" ? "bg-cyan-400" : addressNetwork === "tron" ? "bg-red-400" : "bg-violet-400"}`} />
                       <span className={`text-xs font-semibold ${addressNetwork === "eth" ? "text-cyan-400" : addressNetwork === "tron" ? "text-red-400" : "text-violet-400"}`}>
-                        {addressNetwork === "eth" ? "Ethereum / EVM Network" : addressNetwork === "tron" ? "Tron Network" : "Solana Network"} detected
-                      </span>
-                      <span className="text-xs text-muted-foreground/50">
-                        — showing compatible wallets
+                        {addressNetwork === "eth" ? "Ethereum" : addressNetwork === "tron" ? "Tron" : "Solana"}
                       </span>
                     </div>
                   )}
@@ -323,12 +271,12 @@ export default function ConnectWallet() {
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground/50 mt-1.5">
-                    Supports Ethereum, Solana, Bitcoin, SUI, Aptos, Tron, Cosmos & more
+                    Works with Ethereum, Solana, Bitcoin and more
                   </p>
                   {address && !isValidAddress(address) && address.length > 5 && (
                     <p className="text-xs text-amber-400/80 mt-1 flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3" />
-                      Unrecognised format — you can still continue and use "Import Address" to connect via seed phrase or private key
+                      Unrecognized format. Double-check the address.
                     </p>
                   )}
                 </div>
@@ -340,15 +288,9 @@ export default function ConnectWallet() {
                   size="lg"
                 >
                   <Wallet className="w-4 h-4 mr-2" />
-                  Continue — Choose Wallet
+                  Continue
                   <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 h-px bg-white/5" />
-                  <span className="text-xs text-muted-foreground/50">Supported networks</span>
-                  <div className="flex-1 h-px bg-white/5" />
-                </div>
 
                 <div className="grid grid-cols-3 gap-2">
                   {[
@@ -368,7 +310,7 @@ export default function ConnectWallet() {
             <div className="flex items-start gap-2 glass rounded-md px-3 py-2.5 border border-blue-500/20">
               <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Your address is read-only. We connect to your wallet solely to verify it matches your entered address. No transactions or approvals are requested.
+Read-only. We never ask you to send funds or approve transactions.
               </p>
             </div>
           </div>
@@ -376,10 +318,7 @@ export default function ConnectWallet() {
           {/* Right: Feature cards */}
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground uppercase tracking-widest">What You Can Do</h3>
-              <div className="glass rounded-full px-2 py-1 border border-violet-500/20">
-                <span className="text-xs text-violet-400 font-mono">{FEATURES.length} features</span>
-              </div>
+              <h3 className="text-sm font-semibold text-foreground uppercase tracking-widest">What you can do</h3>
             </div>
 
             <div className="grid grid-cols-1 gap-3">
@@ -419,14 +358,7 @@ export default function ConnectWallet() {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/5 px-6 py-4 flex items-center justify-between">
-        <span className="text-xs text-muted-foreground/40 font-mono">VaultGuard © 2026 — Web3 Security Platform</span>
-        <div className="flex items-center gap-4">
-          <span className="text-xs text-muted-foreground/40">Powered by WalletConnect v3</span>
-          <div className="flex items-center gap-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-400/60 animate-pulse" />
-            <span className="text-xs text-green-400/60 font-mono">SECURED</span>
-          </div>
-        </div>
+        <span className="text-xs text-muted-foreground/40">VaultGuard © 2026</span>
       </footer>
 
       {/* Wallet connect modal */}

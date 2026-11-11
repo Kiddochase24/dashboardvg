@@ -561,7 +561,7 @@ export default function Dashboard() {
 
             {portfolioData.topHoldings.length > 0 && (
               <div className="space-y-2">
-                <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold mb-3">Top Holdings</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold mb-3">Top 5 by value</p>
                 {portfolioData.topHoldings.map((holding, idx) => (
                   <div key={`${holding.symbol}-${idx}`} className="flex items-center justify-between glass rounded-lg p-3 border border-white/5">
                     <div className="flex items-center gap-3">
@@ -571,6 +571,7 @@ export default function Dashboard() {
                       <div>
                         <span className="font-semibold text-foreground">{holding.symbol}</span>
                         <span className="text-xs text-muted-foreground ml-2">{holding.amount.toFixed(4)}</span>
+                        <div className="text-xs text-muted-foreground/60">{holding.chain}</div>
                       </div>
                     </div>
                     <span className="text-sm font-mono text-cyan-400">${holding.valueUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
